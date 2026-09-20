@@ -47,25 +47,26 @@ class AuthController extends Controller
             $request->session()->regenerate();
             $user = Auth::user();
 
-            if ($request->wantsJson()) {
+            $redirectUrl = route('simulasi.wizard');
+            if ($user->role === 'admin') {
+                $redirectUrl = route('admin.dashboard');
+            } elseif ($user->role === 'guru') {
+                $redirectUrl = route('guru.dashboard');
+            }
+
+            if ($request->expectsJson() || $request->wantsJson() || $request->isJson() || $request->ajax()) {
                 return response()->json([
                     'success' => true,
                     'message' => 'Login berhasil',
                     'user' => $user,
-                    'redirect' => $user->role === 'admin' ? route('admin.dashboard') : ($user->role === 'guru' ? route('guru.dashboard') : route('simulasi.wizard')),
+                    'redirect' => $redirectUrl,
                 ]);
             }
 
-            if ($user->role === 'admin') {
-                return redirect()->route('admin.dashboard');
-            } elseif ($user->role === 'guru') {
-                return redirect()->route('guru.dashboard');
-            }
-
-            return redirect()->route('simulasi.wizard');
+            return redirect($redirectUrl);
         }
 
-        if ($request->wantsJson()) {
+        if ($request->expectsJson() || $request->wantsJson() || $request->isJson() || $request->ajax()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Username atau password salah. Silakan coba lagi.',

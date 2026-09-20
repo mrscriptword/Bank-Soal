@@ -24,10 +24,12 @@ Route::get('/api/attempts/{attempt}/review', [StudentExamController::class, 'get
 // Role: Guru Dashboard Routes
 Route::middleware(['auth'])->group(function () {
     Route::get('/guru/dashboard', [GuruController::class, 'dashboard'])->name('guru.dashboard');
+    Route::get('/guru/exams/template-download', [GuruController::class, 'downloadTemplate'])->name('guru.exams.template');
     Route::post('/guru/exams', [GuruController::class, 'storeExam'])->name('guru.exams.store');
     Route::post('/guru/exams/import-pdf', [GuruController::class, 'importExamFromPdf'])->name('guru.exams.import');
     Route::delete('/guru/exams/{exam}', [GuruController::class, 'destroyExam'])->name('guru.exams.destroy');
     Route::post('/guru/questions', [GuruController::class, 'storeQuestion'])->name('guru.questions.store');
+    Route::put('/guru/questions/{question}', [GuruController::class, 'updateQuestion'])->name('guru.questions.update');
     Route::delete('/guru/questions/{question}', [GuruController::class, 'destroyQuestion'])->name('guru.questions.destroy');
 });
 

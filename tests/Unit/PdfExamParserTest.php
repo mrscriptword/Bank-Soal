@@ -84,4 +84,50 @@ B. 623
         $this->assertEquals('b', $questions[0]['correct_option']);
         $this->assertEquals('623', $questions[0]['option_b']);
     }
+
+    public function test_parsing_global_answer_key_table()
+    {
+        $samplePdfText = "
+1. Pertanyaan satu
+a. Opsi 1A
+b. Opsi 1B
+c. Opsi 1C
+d. Opsi 1D
+
+2. Pertanyaan dua
+a. Opsi 2A
+b. Opsi 2B
+c. Opsi 2C
+d. Opsi 2D
+
+KUNCI JAWABAN:
+1. C
+2. D
+";
+
+        $controller = new GuruController();
+        $questions = $controller->parsePdfTextToQuestions($samplePdfText);
+
+        $this->assertCount(2, $questions);
+        $this->assertEquals('c', $questions[0]['correct_option']);
+        $this->assertEquals('d', $questions[1]['correct_option']);
+    }
+
+    public function test_parsing_question_without_key_attaches_warning_note()
+    {
+        $samplePdfText = "
+1. Pertanyaan tanpa kunci
+a. Opsi A
+b. Opsi B
+c. Opsi C
+d. Opsi D
+";
+
+        $controller = new GuruController();
+        $questions = $controller->parsePdfTextToQuestions($samplePdfText);
+
+        $this->assertCount(1, $questions);
+        $this->assertEquals('a', $questions[0]['correct_option']);
+        $this->assertStringContainsString('KUNCI DEFAULT', $questions[0]['explanation']);
+    }
 }

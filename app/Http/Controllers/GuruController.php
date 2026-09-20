@@ -17,9 +17,31 @@ class GuruController extends Controller
 
         $subjects = Subject::withCount(['exams'])->get();
 
-        $exams = Exam::with(['subject', 'questions'])
+        $students = \App\Models\User::where('role', 'murid')->get();
+
+        $exams = Exam::with(['subject', 'questions', 'attempts.user'])
             ->withCount(['attempts'])
-            ->get();
+            ->get()
+            ->map(function ($exam) use ($students) {
+                // Get latest attempt per user for this exam
+                $attemptsByUser = $exam->attempts->sortByDesc('created_at')->unique('user_id');
+                $completedUserIds = $attemptsByUser->pluck('user_id')->toArray();
+
+                // Target students matching exam grade level
+                $targetStudents = $students->filter(function ($student) use ($exam) {
+                    if (!$exam->grade_level || $exam->grade_level === 'ALL') {
+                        return true;
+                    }
+                    return $student->grade_level === $exam->grade_level;
+                });
+
+                $exam->completed_students = $attemptsByUser->values();
+                $exam->pending_students = $targetStudents->reject(function ($student) use ($completedUserIds) {
+                    return in_array($student->id, $completedUserIds);
+                })->values();
+
+                return $exam;
+            });
 
         $attempts = ExamAttempt::with(['user', 'exam.subject'])
             ->latest()
@@ -30,7 +52,10 @@ class GuruController extends Controller
         $totalAttempts = ExamAttempt::count();
         $averageScore = round(ExamAttempt::avg('score') ?? 0, 1);
 
-        return view('guru.dashboard', compact('subjects', 'exams', 'attempts', 'totalQuestions', 'totalAttempts', 'averageScore'));
+        return view('guru.dashboard', compact(
+            'subjects', 'exams', 'attempts', 'students',
+            'totalQuestions', 'totalAttempts', 'averageScore'
+        ));
     }
 
     public function storeExam(Request $request)
@@ -40,6 +65,7 @@ class GuruController extends Controller
             'title' => 'required|string|max:255',
             'duration_minutes' => 'required|integer|min:1',
             'passing_score' => 'required|integer|min:0|max:100',
+            'grade_level' => 'required|in:SD Kelas 4,SD Kelas 5,SMP Kelas 7,SMP Kelas 8',
         ]);
 
         $exam = Exam::create([
@@ -47,6 +73,7 @@ class GuruController extends Controller
             'title' => $request->title,
             'duration_minutes' => $request->duration_minutes,
             'passing_score' => $request->passing_score,
+            'grade_level' => $request->grade_level,
             'created_by' => Auth::id() ?? 1,
             'status' => 'active',
         ]);
@@ -85,6 +112,46 @@ class GuruController extends Controller
         return redirect()->route('guru.dashboard')->with('success', 'Soal & Pembahasan berhasil ditambahkan!');
     }
 
+    public function updateQuestion(Request $request, Question $question)
+    {
+        $request->validate([
+            'exam_id' => 'required|exists:exams,id',
+            'question_text' => 'required|string',
+            'option_a' => 'required|string',
+            'option_b' => 'required|string',
+            'option_c' => 'required|string',
+            'option_d' => 'required|string',
+            'correct_option' => 'required|in:a,b,c,d',
+            'explanation' => 'nullable|string',
+        ]);
+
+        $oldExamId = $question->exam_id;
+
+        $question->update([
+            'exam_id' => $request->exam_id,
+            'question_text' => $request->question_text,
+            'option_a' => $request->option_a,
+            'option_b' => $request->option_b,
+            'option_c' => $request->option_c,
+            'option_d' => $request->option_d,
+            'correct_option' => $request->correct_option,
+            'explanation' => $request->explanation,
+        ]);
+
+        if ($oldExamId != $request->exam_id) {
+            $oldExam = Exam::find($oldExamId);
+            if ($oldExam) {
+                $oldExam->update(['total_questions' => $oldExam->questions()->count()]);
+            }
+            $newExam = Exam::find($request->exam_id);
+            if ($newExam) {
+                $newExam->update(['total_questions' => $newExam->questions()->count()]);
+            }
+        }
+
+        return redirect()->route('guru.dashboard')->with('success', 'Soal & Pembahasan berhasil diperbarui!');
+    }
+
     public function destroyQuestion(Question $question)
     {
         $exam = $question->exam;
@@ -109,6 +176,7 @@ class GuruController extends Controller
             'title' => 'required|string|max:255',
             'duration_minutes' => 'required|integer|min:1',
             'passing_score' => 'required|integer|min:0|max:100',
+            'grade_level' => 'required|in:SD Kelas 4,SD Kelas 5,SMP Kelas 7,SMP Kelas 8',
             'pdf_file' => 'required|file|mimes:pdf|max:10240',
         ]);
 
@@ -133,6 +201,7 @@ class GuruController extends Controller
             'title' => $request->title,
             'duration_minutes' => $request->duration_minutes,
             'passing_score' => $request->passing_score,
+            'grade_level' => $request->grade_level,
             'total_questions' => count($questionsData),
             'created_by' => Auth::id() ?? 1,
             'status' => 'active',
@@ -154,14 +223,87 @@ class GuruController extends Controller
         return redirect()->route('guru.dashboard')->with('success', 'Paket Ujian berhasil dibuat dari file PDF! (' . count($questionsData) . ' soal terimpor)');
     }
 
+    public function downloadTemplate()
+    {
+        $wordHtml = "<html xmlns:o='urn:schemas-microsoft-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>\n" .
+            "<head><meta charset='utf-8'><title>Template Naskah Bank Soal</title>\n" .
+            "<style>\n" .
+            "body { font-family: 'Calibri', 'Arial', sans-serif; font-size: 11pt; line-height: 1.5; color: #111827; margin: 20px; }\n" .
+            "h1 { font-size: 16pt; color: #4F46E5; border-bottom: 2px solid #4F46E5; padding-bottom: 5px; }\n" .
+            "h2 { font-size: 13pt; color: #1F2937; margin-top: 20px; }\n" .
+            ".box { background-color: #F3F4F6; border-left: 4px solid #4F46E5; padding: 10px 15px; margin: 15px 0; }\n" .
+            ".soal { margin-bottom: 15px; }\n" .
+            ".opsi { margin-left: 20px; }\n" .
+            ".kunci { color: #059669; font-weight: bold; }\n" .
+            ".pembahasan { color: #2563EB; font-style: italic; }\n" .
+            "</style></head>\n" .
+            "<body>\n" .
+            "<h1>TEMPLATE NASKAH BANK SOAL PDF / WORD</h1>\n" .
+            "<div class='box'>\n" .
+            "<p><strong>Panduan Penggunaan Template:</strong></p>\n" .
+            "<ol>\n" .
+            "  <li>Ketik atau edit soal Anda di dalam dokumen Word ini.</li>\n" .
+            "  <li>Pastikan nomor soal diawali angka dan titik, misal: <strong>1.</strong> atau <strong>1)</strong>.</li>\n" .
+            "  <li>Sertakan 4 pilihan ganda (<strong>a.</strong>, <strong>b.</strong>, <strong>c.</strong>, <strong>d.</strong>) pada baris terpisah.</li>\n" .
+            "  <li>Tulis kunci jawaban dengan format <code>Kunci: B</code> atau buat daftar kunci jawaban di akhir naskah.</li>\n" .
+            "  <li>Setelah selesai, <strong>Simpan / Save As / Export sebagai PDF (.pdf)</strong> lalu unggah ke aplikasi.</li>\n" .
+            "</ol>\n" .
+            "</div>\n" .
+            "<hr/>\n" .
+            "<h2>CONTOH FORMAT NASKAH (INLINE):</h2>\n" .
+            "<div class='soal'>\n" .
+            "<p><strong>1. Hasil dari 15 + 25 x 2 adalah...</strong></p>\n" .
+            "<div class='opsi'>a. 80<br/>b. 65<br/>c. 55<br/>d. 70</div>\n" .
+            "<p class='kunci'>Kunci: B</p>\n" .
+            "<p class='pembahasan'>Pembahasan: Dahulukan perkalian 25 x 2 = 50. Lalu 15 + 50 = 65.</p>\n" .
+            "</div>\n" .
+            "<div class='soal'>\n" .
+            "<p><strong>2. Sebuah persegi memiliki panjang sisi 8 cm. Berapa luas persegi tersebut?</strong></p>\n" .
+            "<div class='opsi'>a. 32 cm²<br/>b. 64 cm²<br/>c. 16 cm²<br/>d. 48 cm²</div>\n" .
+            "<p class='kunci'>Kunci: B</p>\n" .
+            "<p class='pembahasan'>Pembahasan: Luas persegi = s x s = 8 cm x 8 cm = 64 cm².</p>\n" .
+            "</div>\n" .
+            "<div class='soal'>\n" .
+            "<p><strong>3. Manakah yang termasuk kata baku dalam Bahasa Indonesia?</strong></p>\n" .
+            "<div class='opsi'>a. Apotik<br/>b. Apotek<br/>c. Apotiek<br/>d. Apoteq</div>\n" .
+            "<p class='kunci'>Kunci: B</p>\n" .
+            "<p class='pembahasan'>Pembahasan: Kata yang baku menurut KBBI adalah Apotek.</p>\n" .
+            "</div>\n" .
+            "<hr/>\n" .
+            "<h2>ALTERNATIF FORMAT (Daftar Kunci di Akhir Dokumen):</h2>\n" .
+            "<p><strong>KUNCI JAWABAN:</strong></p>\n" .
+            "<p>1. B<br/>2. B<br/>3. B</p>\n" .
+            "</body></html>";
+
+        return response($wordHtml, 200, [
+            'Content-Type' => 'application/msword; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="Template_BankSoal_PDF.doc"',
+        ]);
+    }
+
     public function parsePdfTextToQuestions(string $text): array
     {
         $text = str_replace(["\r\n", "\r"], "\n", $text);
+
+        // Extract Global Answer Key table if present (e.g. "KUNCI JAWABAN: 1. A 2. B 3. C")
+        $globalKeys = [];
+        if (preg_match('/(?:KUNCI|DAFTAR KUNCI|KUNCI JAWABAN|ANSWER KEY)\s*:?\s*\n?(.*)/is', $text, $mGlobal, PREG_OFFSET_CAPTURE)) {
+            $globalSection = $mGlobal[1][0];
+            if (preg_match_all('/(?:Soal\s*)?(\d+)[\.\)]\s*:?\s*\(?\s*([a-d])\s*\)?/i', $globalSection, $mMatches, PREG_SET_ORDER)) {
+                foreach ($mMatches as $m) {
+                    $globalKeys[(int)$m[1]] = strtolower($m[2]);
+                }
+            }
+            // Strip global key section from main text so it isn't parsed as question blocks
+            $text = substr($text, 0, $mGlobal[0][1]);
+        }
 
         // Split text line by line to locate question headers
         $lines = explode("\n", $text);
         $blocks = [];
         $currentBlock = [];
+        $questionNumber = 0;
+        $questionNumbers = [];
 
         foreach ($lines as $line) {
             $trimmed = trim($line);
@@ -175,6 +317,8 @@ class GuruController extends Controller
                     $blocks[] = implode("\n", $currentBlock);
                     $currentBlock = [];
                 }
+                $questionNumber = (int)$m[1];
+                $questionNumbers[] = $questionNumber;
                 $currentBlock[] = $m[2];
             } else {
                 if (!empty($currentBlock)) {
@@ -188,8 +332,10 @@ class GuruController extends Controller
         }
 
         $questions = [];
-        foreach ($blocks as $block) {
-            $parsed = $this->formatParsedQuestionBlock($block);
+        foreach ($blocks as $idx => $block) {
+            $qNum = $questionNumbers[$idx] ?? ($idx + 1);
+            $gKey = $globalKeys[$qNum] ?? null;
+            $parsed = $this->formatParsedQuestionBlock($block, $gKey);
             if ($parsed) {
                 $questions[] = $parsed;
             }
@@ -203,9 +349,11 @@ class GuruController extends Controller
                 for ($i = 0; $i < count($splitBlocks); $i++) {
                     $item = trim($splitBlocks[$i]);
                     if (is_numeric($item)) {
+                        $qNum = (int)$item;
                         $content = $splitBlocks[$i + 1] ?? '';
                         $i++;
-                        $parsed = $this->formatParsedQuestionBlock($content);
+                        $gKey = $globalKeys[$qNum] ?? null;
+                        $parsed = $this->formatParsedQuestionBlock($content, $gKey);
                         if ($parsed) {
                             $questions[] = $parsed;
                         }
@@ -217,7 +365,7 @@ class GuruController extends Controller
         return $questions;
     }
 
-    private function formatParsedQuestionBlock(string $block): ?array
+    private function formatParsedQuestionBlock(string $block, ?string $globalKey = null): ?array
     {
         $block = trim($block);
         if (empty($block)) {
@@ -232,15 +380,19 @@ class GuruController extends Controller
         }
 
         // 2. Extract Answer Key / Jawaban (OPTIONAL)
-        $correctOpt = null;
+        $correctOpt = $globalKey;
         $answerText = null;
+        $hasKeyFromPdf = !empty($globalKey);
 
-        if (preg_match('/(?:Kunci|Jawaban|Kunci Jawaban|Jawaban Benar)\s*:?\s*(?:Benar\s*)?\n?\s*([a-d])(?:\.|\s|\n|$)/i', $block, $mKey, PREG_OFFSET_CAPTURE)) {
-            $correctOpt = strtolower($mKey[1][0]);
-            $block = trim(substr($block, 0, $mKey[0][1]));
-        } elseif (preg_match('/(?:Kunci|Jawaban|Kunci Jawaban|Jawaban Benar)\s*:\s*(.+)/i', $block, $mVal, PREG_OFFSET_CAPTURE)) {
-            $answerText = trim($mVal[1][0]);
-            $block = trim(substr($block, 0, $mVal[0][1]));
+        if (!$correctOpt) {
+            if (preg_match('/(?:Kunci\s*Jawaban|Kunci|Jawaban\s*Benar|Jawaban|Jwb|Key|Ans)\s*:?\s*(?:Benar\s*)?\n?\s*(?:\(?|\[?)\s*([a-d])\s*(?:\)?|\]?)(?:\.|\s|\n|$)/i', $block, $mKey, PREG_OFFSET_CAPTURE)) {
+                $correctOpt = strtolower($mKey[1][0]);
+                $hasKeyFromPdf = true;
+                $block = trim(substr($block, 0, $mKey[0][1]));
+            } elseif (preg_match('/(?:Kunci\s*Jawaban|Kunci|Jawaban\s*Benar|Jawaban|Jwb|Key|Ans)\s*:\s*(.+)/i', $block, $mVal, PREG_OFFSET_CAPTURE)) {
+                $answerText = trim($mVal[1][0]);
+                $block = trim(substr($block, 0, $mVal[0][1]));
+            }
         }
 
         // 3. Extract Options A, B, C, D
@@ -296,14 +448,21 @@ class GuruController extends Controller
         // Match answerText to option if letter was not given (e.g. Jawaban: 5.000)
         if (!$correctOpt && $answerText) {
             $cleanAns = strtolower(trim($answerText));
-            if ($optA && strtolower(trim($optA)) === $cleanAns) $correctOpt = 'a';
-            elseif ($optB && strtolower(trim($optB)) === $cleanAns) $correctOpt = 'b';
-            elseif ($optC && strtolower(trim($optC)) === $cleanAns) $correctOpt = 'c';
-            elseif ($optD && strtolower(trim($optD)) === $cleanAns) $correctOpt = 'd';
+            if ($optA && strtolower(trim($optA)) === $cleanAns) { $correctOpt = 'a'; $hasKeyFromPdf = true; }
+            elseif ($optB && strtolower(trim($optB)) === $cleanAns) { $correctOpt = 'b'; $hasKeyFromPdf = true; }
+            elseif ($optC && strtolower(trim($optC)) === $cleanAns) { $correctOpt = 'c'; $hasKeyFromPdf = true; }
+            elseif ($optD && strtolower(trim($optD)) === $cleanAns) { $correctOpt = 'd'; $hasKeyFromPdf = true; }
         }
 
+        $isDefaultKey = false;
         if (!in_array($correctOpt, ['a', 'b', 'c', 'd'])) {
             $correctOpt = 'a';
+            $isDefaultKey = true;
+        }
+
+        if ($isDefaultKey && !$hasKeyFromPdf) {
+            $note = "[⚠️ KUNCI DEFAULT: Tidak ada kunci jawaban pada file PDF]";
+            $explanation = $explanation ? $explanation . "\n" . $note : $note;
         }
 
         return [

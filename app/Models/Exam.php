@@ -15,6 +15,7 @@ class Exam extends Model
         'duration_minutes',
         'total_questions',
         'passing_score',
+        'grade_level',
         'created_by',
         'status',
     ];

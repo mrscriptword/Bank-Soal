@@ -12,23 +12,57 @@ use Illuminate\Support\Facades\Auth;
 
 class StudentExamController extends Controller
 {
-    public function wizard()
+    private function getTargetGradeLevel(?Request $request = null): ?string
     {
-        $subjects = Subject::with(['exams' => function ($query) {
-            $query->where('status', 'active')->withCount('questions');
-        }])->get();
-
-        return view('simulasi.interactive_wizard', compact('subjects'));
+        $user = Auth::user();
+        if ($user && $user->role === 'murid' && !empty($user->grade_level) && $user->grade_level !== 'ALL') {
+            return $user->grade_level;
+        }
+        if ($request && $request->has('grade_level') && !empty($request->grade_level) && $request->grade_level !== 'ALL') {
+            return $request->grade_level;
+        }
+        return null;
     }
 
-    public function getSubjects()
+    public function wizard(Request $request)
     {
-        $subjects = Subject::with(['exams' => function ($q) {
-            $q->where('status', 'active')->withCount('questions');
+        if (Auth::check()) {
+            $user = Auth::user();
+            if ($user->role === 'admin') {
+                return redirect()->route('admin.dashboard');
+            } elseif ($user->role === 'guru') {
+                return redirect()->route('guru.dashboard');
+            }
+        }
+
+        $targetGrade = $this->getTargetGradeLevel($request);
+
+        $subjects = Subject::with(['exams' => function ($query) use ($targetGrade) {
+            $query->where('status', 'active');
+            if ($targetGrade) {
+                $query->where('grade_level', $targetGrade);
+            }
+            $query->withCount('questions');
+        }])->get();
+
+        return view('simulasi.interactive_wizard', compact('subjects', 'targetGrade'));
+    }
+
+    public function getSubjects(Request $request)
+    {
+        $targetGrade = $this->getTargetGradeLevel($request);
+
+        $subjects = Subject::with(['exams' => function ($q) use ($targetGrade) {
+            $q->where('status', 'active');
+            if ($targetGrade) {
+                $q->where('grade_level', $targetGrade);
+            }
+            $q->withCount('questions');
         }])->get();
 
         return response()->json([
             'success' => true,
+            'target_grade' => $targetGrade,
             'subjects' => $subjects,
         ]);
     }

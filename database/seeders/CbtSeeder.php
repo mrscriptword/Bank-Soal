@@ -43,7 +43,7 @@ class CbtSeeder extends Seeder
                 'email' => 'siswa2026@simulasiku.id',
                 'password' => Hash::make('password'),
                 'role' => 'murid',
-                'grade_level' => 'SMP',
+                'grade_level' => 'SD Kelas 4',
             ]
         );
 
@@ -79,6 +79,7 @@ class CbtSeeder extends Seeder
             'duration_minutes' => 15,
             'total_questions' => 10,
             'passing_score' => 70,
+            'grade_level' => 'SD Kelas 4',
             'created_by' => $guru->id,
             'status' => 'active',
         ]);
@@ -201,6 +202,7 @@ class CbtSeeder extends Seeder
             'duration_minutes' => 12,
             'total_questions' => 8,
             'passing_score' => 70,
+            'grade_level' => 'SD Kelas 5',
             'created_by' => $guru->id,
             'status' => 'active',
         ]);
@@ -234,6 +236,7 @@ class CbtSeeder extends Seeder
             'duration_minutes' => 15,
             'total_questions' => 10,
             'passing_score' => 70,
+            'grade_level' => 'SMP Kelas 7',
             'created_by' => $guru->id,
             'status' => 'active',
         ]);
