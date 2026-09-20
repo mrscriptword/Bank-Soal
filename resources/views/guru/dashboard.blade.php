@@ -156,7 +156,7 @@
                                         <div class="bg-white dark:bg-zinc-900/90 border border-slate-200 dark:border-zinc-800/60 p-3.5 rounded-xl flex items-start justify-between gap-3 text-xs hover:border-slate-300 dark:hover:border-zinc-700/60 transition">
                                             <div class="space-y-1">
                                                 <div class="flex items-center flex-wrap gap-2">
-                                                    <span class="font-bold text-slate-800 dark:text-zinc-200">#{{ $idx + 1 }}. {{ $q->question_text }}</span>
+                                                    <span class="font-bold text-slate-800 dark:text-zinc-200">#{{ $idx + 1 }}. {{ Str::limit($q->question_text, 80) }}</span>
                                                     @if($q->type === 'matching')
                                                         <span class="px-2 py-0.5 bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 text-[10px] font-bold rounded-md inline-flex items-center gap-1">
                                                             🧩 Pasangan
@@ -166,12 +166,24 @@
                                                             🔢 Susun Urutan
                                                         </span>
                                                     @endif
+                                                    @if($q->cognitive_level)
+                                                        @php $cogColors = ['C1'=>'bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-800','C2'=>'bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border-teal-300 dark:border-teal-800','C3'=>'bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800','C4'=>'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800']; @endphp
+                                                        <span class="px-2 py-0.5 border text-[10px] font-bold rounded-md {{ $cogColors[$q->cognitive_level] ?? '' }}">
+                                                            {{ $q->cognitive_level }}
+                                                        </span>
+                                                    @endif
+                                                    @if($q->bobot && $q->bobot > 1)
+                                                        <span class="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300 border border-yellow-300 dark:border-yellow-800 text-[10px] font-bold rounded-md">Bobot: {{ $q->bobot }}</span>
+                                                    @endif
                                                     @if(str_contains($q->explanation ?? '', 'KUNCI DEFAULT'))
                                                         <span class="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800/80 text-[10px] font-bold rounded-md inline-flex items-center gap-1">
                                                             ⚠️ Kunci Default (Perlu Dicek)
                                                         </span>
                                                     @endif
                                                 </div>
+                                                @if($q->indikator)
+                                                    <p class="text-[11px] text-slate-500 dark:text-zinc-400">📌 Indikator: <span class="font-semibold text-slate-700 dark:text-zinc-200">{{ $q->indikator }}</span>@if($q->materi) · Materi: {{ $q->materi }}@endif</p>
+                                                @endif
 
                                                 @if($q->type === 'matching' && is_array($q->pair_data))
                                                     <div class="flex flex-wrap gap-2 text-[11px] text-purple-700 dark:text-purple-300 pt-1 font-medium">
@@ -440,6 +452,37 @@
                 </select>
             </div>
 
+            <!-- Metadata Soal -->
+            <div class="bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5 space-y-3">
+                <span class="text-xs font-bold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">📋 Metadata Soal <span class="text-[10px] font-normal text-slate-400">(opsional)</span></span>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="text-[11px] font-semibold text-slate-600 dark:text-zinc-400">Materi</label>
+                        <input type="text" name="materi" placeholder="Misal: Pecahan Desimal" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[11px] font-semibold text-slate-600 dark:text-zinc-400">Level Kognitif</label>
+                        <select name="cognitive_level" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                            <option value="">-- Pilih --</option>
+                            <option value="C1">C1 – Mengingat</option>
+                            <option value="C2">C2 – Memahami</option>
+                            <option value="C3">C3 – Menerapkan</option>
+                            <option value="C4">C4 – Menganalisis</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1 col-span-1">
+                        <label class="text-[11px] font-semibold text-slate-600 dark:text-zinc-400">Indikator Pembelajaran</label>
+                        <input type="text" name="indikator" placeholder="Misal: Siswa dapat menghitung luas" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[11px] font-semibold text-slate-600 dark:text-zinc-400">Bobot Soal</label>
+                        <input type="number" name="bobot" value="1" min="1" max="100" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                    </div>
+                </div>
+            </div>
+
             <div class="space-y-1">
                 <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Tipe Soal</label>
                 <select name="type" id="create_question_type" onchange="toggleQuestionTypeFields('create')" class="w-full bg-slate-50 dark:bg-zinc-900 border border-purple-500/40 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 dark:text-white">
@@ -507,6 +550,27 @@
                 @endfor
             </div>
 
+            <!-- Fieldset: Error Pattern per Jawaban Salah (hanya multiple_choice) -->
+            <div id="create-field-wrong-answer" class="space-y-3 bg-rose-50/50 dark:bg-rose-950/10 p-4 border border-rose-200 dark:border-rose-900/40 rounded-2xl">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-rose-700 dark:text-rose-300">🔍 Error Pattern & Diagnosis per Jawaban Salah:</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Isi hanya untuk pilihan yang salah</span>
+                </div>
+                @foreach(['a'=>'A','b'=>'B','c'=>'C','d'=>'D'] as $opt => $label)
+                    <div class="create-wrong-opt" data-opt="{{ $opt }}">
+                        <div class="flex items-center gap-1.5 mb-1.5">
+                            <span class="w-5 h-5 rounded bg-rose-600 text-white text-[10px] font-extrabold flex items-center justify-center">{{ $label }}</span>
+                            <span class="text-[11px] font-semibold text-slate-600 dark:text-zinc-400">Jika salah pilih {{ $label }}</span>
+                        </div>
+                        <div class="grid grid-cols-1 gap-1.5 pl-7">
+                            <input type="text" name="error_pattern_{{ $opt }}" placeholder="Error Pattern (pola kesalahan)" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-xl px-3 py-1.5 text-[11px]">
+                            <input type="text" name="diagnosis_{{ $opt }}" placeholder="Diagnosis (akar masalah)" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-xl px-3 py-1.5 text-[11px]">
+                            <textarea name="treatment_{{ $opt }}" rows="2" placeholder="Treatment / rekomendasi pembelajaran" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-xl px-3 py-1.5 text-[11px]"></textarea>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
             <div class="space-y-1">
                 <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pembahasan (Langkah & Rumus)</label>
                 <textarea name="explanation" rows="3" placeholder="Tuliskan rumus dan cara penyelesaiannya..." class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white"></textarea>
@@ -537,6 +601,37 @@
                         <option value="{{ $e->id }}">{{ $e->title }} ({{ $e->subject->title ?? 'Pelajaran' }})</option>
                     @endforeach
                 </select>
+            </div>
+
+            <!-- Metadata Soal Edit -->
+            <div class="bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5 space-y-3">
+                <span class="text-xs font-bold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">📋 Metadata Soal <span class="text-[10px] font-normal text-slate-400">(opsional)</span></span>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="text-[11px] font-semibold text-slate-600 dark:text-zinc-400">Materi</label>
+                        <input type="text" id="edit_materi" name="materi" placeholder="Misal: Pecahan Desimal" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[11px] font-semibold text-slate-600 dark:text-zinc-400">Level Kognitif</label>
+                        <select id="edit_cognitive_level" name="cognitive_level" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                            <option value="">-- Pilih --</option>
+                            <option value="C1">C1 – Mengingat</option>
+                            <option value="C2">C2 – Memahami</option>
+                            <option value="C3">C3 – Menerapkan</option>
+                            <option value="C4">C4 – Menganalisis</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="text-[11px] font-semibold text-slate-600 dark:text-zinc-400">Indikator Pembelajaran</label>
+                        <input type="text" id="edit_indikator" name="indikator" placeholder="Misal: Siswa dapat menghitung luas" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[11px] font-semibold text-slate-600 dark:text-zinc-400">Bobot Soal</label>
+                        <input type="number" id="edit_bobot" name="bobot" value="1" min="1" max="100" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                    </div>
+                </div>
             </div>
 
             <div class="space-y-1">
@@ -606,6 +701,26 @@
                 @endfor
             </div>
 
+            <!-- Fieldset Edit: Error Pattern per Jawaban Salah -->
+            <div id="edit-field-wrong-answer" class="space-y-3 bg-rose-50/50 dark:bg-rose-950/10 p-4 border border-rose-200 dark:border-rose-900/40 rounded-2xl">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-rose-700 dark:text-rose-300">🔍 Error Pattern & Diagnosis per Jawaban Salah:</span>
+                </div>
+                @foreach(['a'=>'A','b'=>'B','c'=>'C','d'=>'D'] as $opt => $label)
+                    <div class="edit-wrong-opt" data-opt="{{ $opt }}">
+                        <div class="flex items-center gap-1.5 mb-1.5">
+                            <span class="w-5 h-5 rounded bg-rose-600 text-white text-[10px] font-extrabold flex items-center justify-center">{{ $label }}</span>
+                            <span class="text-[11px] font-semibold text-slate-600 dark:text-zinc-400">Jika salah pilih {{ $label }}</span>
+                        </div>
+                        <div class="grid grid-cols-1 gap-1.5 pl-7">
+                            <input type="text" id="edit_ep_{{ $opt }}" name="error_pattern_{{ $opt }}" placeholder="Error Pattern" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-xl px-3 py-1.5 text-[11px]">
+                            <input type="text" id="edit_diag_{{ $opt }}" name="diagnosis_{{ $opt }}" placeholder="Diagnosis" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-xl px-3 py-1.5 text-[11px]">
+                            <textarea id="edit_treat_{{ $opt }}" name="treatment_{{ $opt }}" rows="2" placeholder="Treatment / rekomendasi pembelajaran" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 rounded-xl px-3 py-1.5 text-[11px]"></textarea>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
             <div class="space-y-1">
                 <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pembahasan (Langkah & Rumus)</label>
                 <textarea id="edit_explanation" name="explanation" rows="3" placeholder="Tuliskan rumus dan cara penyelesaiannya..." class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white"></textarea>
@@ -625,11 +740,41 @@ function toggleQuestionTypeFields(prefix) {
     const mcContainer = document.getElementById(prefix + '-field-mc');
     const matchingContainer = document.getElementById(prefix + '-field-matching');
     const orderingContainer = document.getElementById(prefix + '-field-ordering');
+    const wrongAnswerContainer = document.getElementById(prefix + '-field-wrong-answer');
 
     if (mcContainer) mcContainer.classList.toggle('hidden', type !== 'multiple_choice');
     if (matchingContainer) matchingContainer.classList.toggle('hidden', type !== 'matching');
     if (orderingContainer) orderingContainer.classList.toggle('hidden', type !== 'ordering');
+    if (wrongAnswerContainer) wrongAnswerContainer.classList.toggle('hidden', type !== 'multiple_choice');
+
+    // When correct_option changes, update which wrong-answer rows are highlighted
+    if (type === 'multiple_choice') {
+        updateCorrectOptionHighlight(prefix);
+    }
 }
+
+function updateCorrectOptionHighlight(prefix) {
+    const correctSel = document.getElementById(prefix === 'create' ? 'create_correct_option_sel' : 'edit_correct_option');
+    if (!correctSel) return;
+    const correct = correctSel.value;
+    const opts = ['a','b','c','d'];
+    const rowClass = prefix === 'create' ? 'create-wrong-opt' : 'edit-wrong-opt';
+    document.querySelectorAll('.' + rowClass).forEach(row => {
+        const opt = row.dataset.opt;
+        row.style.opacity = opt === correct ? '0.35' : '1';
+        row.style.pointerEvents = opt === correct ? 'none' : '';
+        const label = row.querySelector('span');
+        if (label) label.style.background = opt === correct ? '#6b7280' : '';
+    });
+}
+
+// Wire up correct_option change listener
+document.addEventListener('DOMContentLoaded', function() {
+    const createCorrect = document.getElementById('create_correct_option_sel');
+    if (createCorrect) createCorrect.addEventListener('change', () => updateCorrectOptionHighlight('create'));
+    const editCorrect = document.getElementById('edit_correct_option');
+    if (editCorrect) editCorrect.addEventListener('change', () => updateCorrectOptionHighlight('edit'));
+});
 
 function openEditQuestionModal(question) {
     const form = document.getElementById('form-edit-question');
@@ -644,6 +789,16 @@ function openEditQuestionModal(question) {
     document.getElementById('edit_option_d').value = question.option_d || '';
     document.getElementById('edit_correct_option').value = question.correct_option || 'a';
     document.getElementById('edit_explanation').value = question.explanation || '';
+
+    // Metadata
+    const editMateri = document.getElementById('edit_materi');
+    if (editMateri) editMateri.value = question.materi || '';
+    const editIndikator = document.getElementById('edit_indikator');
+    if (editIndikator) editIndikator.value = question.indikator || '';
+    const editCogLevel = document.getElementById('edit_cognitive_level');
+    if (editCogLevel) editCogLevel.value = question.cognitive_level || '';
+    const editBobot = document.getElementById('edit_bobot');
+    if (editBobot) editBobot.value = question.bobot || 1;
 
     // Populate pair_data
     const pairs = question.pair_data || [];
@@ -661,7 +816,19 @@ function openEditQuestionModal(question) {
         if (seqInput) seqInput.value = seq[i] || '';
     }
 
+    // Populate wrong_answer_data
+    const wad = question.wrong_answer_data || {};
+    ['a','b','c','d'].forEach(opt => {
+        const epInput = document.getElementById('edit_ep_' + opt);
+        const diagInput = document.getElementById('edit_diag_' + opt);
+        const treatInput = document.getElementById('edit_treat_' + opt);
+        if (epInput) epInput.value = (wad[opt] && wad[opt].error_pattern) ? wad[opt].error_pattern : '';
+        if (diagInput) diagInput.value = (wad[opt] && wad[opt].diagnosis) ? wad[opt].diagnosis : '';
+        if (treatInput) treatInput.value = (wad[opt] && wad[opt].treatment) ? wad[opt].treatment : '';
+    });
+
     toggleQuestionTypeFields('edit');
+    updateCorrectOptionHighlight('edit');
     document.getElementById('modal-edit-question').classList.remove('hidden');
 }
 </script>

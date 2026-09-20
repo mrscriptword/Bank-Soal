@@ -15,6 +15,9 @@ class ExamAttemptAnswer extends Model
         'selected_option',
         'answer_payload',
         'is_correct',
+        'triggered_error_pattern',
+        'triggered_diagnosis',
+        'triggered_treatment',
     ];
 
     protected $casts = [

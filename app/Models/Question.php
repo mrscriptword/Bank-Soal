@@ -11,6 +11,10 @@ class Question extends Model
 
     protected $fillable = [
         'exam_id',
+        'materi',
+        'indikator',
+        'cognitive_level',
+        'bobot',
         'type',
         'question_text',
         'option_a',
@@ -21,11 +25,13 @@ class Question extends Model
         'explanation',
         'pair_data',
         'sequence_data',
+        'wrong_answer_data',
     ];
 
     protected $casts = [
         'pair_data' => 'array',
         'sequence_data' => 'array',
+        'wrong_answer_data' => 'array',
     ];
 
     public function exam()
