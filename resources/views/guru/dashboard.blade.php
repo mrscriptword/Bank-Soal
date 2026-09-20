@@ -15,7 +15,7 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
-            <a href="#modal-template-guide" onclick="document.getElementById('modal-template-guide').classList.remove('hidden')" class="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-purple-600/20 flex items-center gap-2">
+            <a href="#modal-pdf-exam" onclick="document.getElementById('modal-pdf-exam').classList.remove('hidden')" class="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-purple-600/20 flex items-center gap-2">
                 <span>📄</span> Upload PDF Ujian
             </a>
             <a href="#modal-exam" onclick="document.getElementById('modal-exam').classList.remove('hidden')" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-blue-600/20 flex items-center gap-2">
@@ -157,18 +157,47 @@
                                             <div class="space-y-1">
                                                 <div class="flex items-center flex-wrap gap-2">
                                                     <span class="font-bold text-slate-800 dark:text-zinc-200">#{{ $idx + 1 }}. {{ $q->question_text }}</span>
+                                                    @if($q->type === 'matching')
+                                                        <span class="px-2 py-0.5 bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 text-[10px] font-bold rounded-md inline-flex items-center gap-1">
+                                                            🧩 Pasangan
+                                                        </span>
+                                                    @elseif($q->type === 'ordering')
+                                                        <span class="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800 text-[10px] font-bold rounded-md inline-flex items-center gap-1">
+                                                            🔢 Susun Urutan
+                                                        </span>
+                                                    @endif
                                                     @if(str_contains($q->explanation ?? '', 'KUNCI DEFAULT'))
                                                         <span class="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800/80 text-[10px] font-bold rounded-md inline-flex items-center gap-1">
                                                             ⚠️ Kunci Default (Perlu Dicek)
                                                         </span>
                                                     @endif
                                                 </div>
-                                                <div class="grid grid-cols-2 gap-x-4 text-[11px] text-slate-600 dark:text-zinc-400 pt-1">
-                                                    <span class="{{ $q->correct_option === 'a' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : '' }}">A. {{ $q->option_a }}</span>
-                                                    <span class="{{ $q->correct_option === 'b' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : '' }}">B. {{ $q->option_b }}</span>
-                                                    <span class="{{ $q->correct_option === 'c' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : '' }}">C. {{ $q->option_c }}</span>
-                                                    <span class="{{ $q->correct_option === 'd' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : '' }}">D. {{ $q->option_d }}</span>
-                                                </div>
+
+                                                @if($q->type === 'matching' && is_array($q->pair_data))
+                                                    <div class="flex flex-wrap gap-2 text-[11px] text-purple-700 dark:text-purple-300 pt-1 font-medium">
+                                                        @foreach($q->pair_data as $p)
+                                                            <span class="bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-900/50">
+                                                                {{ $p['left'] ?? '' }} ➔ {{ $p['right'] ?? '' }}
+                                                            </span>
+                                                        @endforeach
+                                                    </div>
+                                                @elseif($q->type === 'ordering' && is_array($q->sequence_data))
+                                                    <div class="flex flex-wrap gap-1.5 text-[11px] text-indigo-700 dark:text-indigo-300 pt-1 font-medium">
+                                                        @foreach($q->sequence_data as $sIdx => $sVal)
+                                                            <span class="bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-900/50">
+                                                                {{ $sIdx + 1 }}. {{ $sVal }}
+                                                            </span>
+                                                        @endforeach
+                                                    </div>
+                                                @else
+                                                    <div class="grid grid-cols-2 gap-x-4 text-[11px] text-slate-600 dark:text-zinc-400 pt-1">
+                                                        <span class="{{ $q->correct_option === 'a' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : '' }}">A. {{ $q->option_a }}</span>
+                                                        <span class="{{ $q->correct_option === 'b' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : '' }}">B. {{ $q->option_b }}</span>
+                                                        <span class="{{ $q->correct_option === 'c' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : '' }}">C. {{ $q->option_c }}</span>
+                                                        <span class="{{ $q->correct_option === 'd' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : '' }}">D. {{ $q->option_d }}</span>
+                                                    </div>
+                                                @endif
+
                                                 @if($q->explanation)
                                                     <p class="text-[11px] text-blue-600 dark:text-blue-400 italic pt-0.5">Pembahasan: {{ $q->explanation }}</p>
                                                 @endif
@@ -382,6 +411,10 @@
                     <input type="number" name="passing_score" value="70" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
                 </div>
             </div>
+            <div class="flex items-center gap-2 pt-1">
+                <input type="checkbox" name="allow_repeat" id="allow_repeat" value="1" class="w-4 h-4 text-blue-600 rounded border-slate-300 dark:border-zinc-800 focus:ring-blue-500">
+                <label for="allow_repeat" class="text-xs font-semibold text-slate-700 dark:text-zinc-300 cursor-pointer">Izinkan Siswa Mengulangi Ujian (Fitur Ulangi)</label>
+            </div>
             <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/20">
                 Simpan Paket Ujian
             </button>
@@ -406,37 +439,74 @@
                     @endforeach
                 </select>
             </div>
+
             <div class="space-y-1">
-                <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pertanyaan / Soal</label>
-                <textarea name="question_text" rows="3" required placeholder="Ketik kalimat soal di sini..." class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white"></textarea>
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-1">
-                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan A</label>
-                    <input type="text" name="option_a" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan B</label>
-                    <input type="text" name="option_b" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan C</label>
-                    <input type="text" name="option_c" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan D</label>
-                    <input type="text" name="option_d" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
-                </div>
-            </div>
-            <div class="space-y-1">
-                <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Kunci Jawaban Benar</label>
-                <select name="correct_option" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
-                    <option value="a">A</option>
-                    <option value="b">B</option>
-                    <option value="c">C</option>
-                    <option value="d">D</option>
+                <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Tipe Soal</label>
+                <select name="type" id="create_question_type" onchange="toggleQuestionTypeFields('create')" class="w-full bg-slate-50 dark:bg-zinc-900 border border-purple-500/40 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 dark:text-white">
+                    <option value="multiple_choice">Pilihan Ganda (Standard A, B, C, D)</option>
+                    <option value="matching">🧩 Pasangan (Menjodohkan Kiri & Kanan)</option>
+                    <option value="ordering">🔢 Susun Urutan (Urutan Langkah/Kronologis)</option>
                 </select>
             </div>
+
+            <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pertanyaan / Instruksi Soal</label>
+                <textarea name="question_text" rows="3" required placeholder="Ketik kalimat soal atau instruksi di sini..." class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white"></textarea>
+            </div>
+
+            <!-- Fieldset: Pilihan Ganda -->
+            <div id="create-field-mc" class="space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan A</label>
+                        <input type="text" name="option_a" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan B</label>
+                        <input type="text" name="option_b" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan C</label>
+                        <input type="text" name="option_c" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan D</label>
+                        <input type="text" name="option_d" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Kunci Jawaban Benar</label>
+                    <select name="correct_option" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
+                        <option value="a">A</option>
+                        <option value="b">B</option>
+                        <option value="c">C</option>
+                        <option value="d">D</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Fieldset: Pasangan (Matching) -->
+            <div id="create-field-matching" class="hidden space-y-3 bg-purple-50/50 dark:bg-purple-950/20 p-4 border border-purple-200 dark:border-purple-900/40 rounded-2xl">
+                <span class="text-xs font-bold text-purple-700 dark:text-purple-300 block">🧩 Pasangan Kiri & Kanan (Kunci Benar):</span>
+                @for($i = 0; $i < 4; $i++)
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" name="pair_data[{{ $i }}][left]" placeholder="Kiri {{ $i + 1 }} (Misal: Persegi)" class="bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs">
+                        <input type="text" name="pair_data[{{ $i }}][right]" placeholder="Kanan {{ $i + 1 }} (Misal: s x s)" class="bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs">
+                    </div>
+                @endfor
+            </div>
+
+            <!-- Fieldset: Susun Urutan (Ordering) -->
+            <div id="create-field-ordering" class="hidden space-y-3 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 border border-indigo-200 dark:border-indigo-900/40 rounded-2xl">
+                <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300 block">🔢 Urutan Langkah yang Benar (Top to Bottom):</span>
+                @for($i = 0; $i < 5; $i++)
+                    <div class="flex items-center gap-2">
+                        <span class="w-5 h-5 rounded bg-indigo-600 text-white text-[10px] font-extrabold flex items-center justify-center shrink-0">{{ $i + 1 }}</span>
+                        <input type="text" name="sequence_data[{{ $i }}]" placeholder="Langkah {{ $i + 1 }}" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs">
+                    </div>
+                @endfor
+            </div>
+
             <div class="space-y-1">
                 <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pembahasan (Langkah & Rumus)</label>
                 <textarea name="explanation" rows="3" placeholder="Tuliskan rumus dan cara penyelesaiannya..." class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white"></textarea>
@@ -468,37 +538,74 @@
                     @endforeach
                 </select>
             </div>
+
             <div class="space-y-1">
-                <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pertanyaan / Soal</label>
-                <textarea id="edit_question_text" name="question_text" rows="3" required placeholder="Ketik kalimat soal di sini..." class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white"></textarea>
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-1">
-                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan A</label>
-                    <input type="text" id="edit_option_a" name="option_a" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan B</label>
-                    <input type="text" id="edit_option_b" name="option_b" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan C</label>
-                    <input type="text" id="edit_option_c" name="option_c" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan D</label>
-                    <input type="text" id="edit_option_d" name="option_d" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
-                </div>
-            </div>
-            <div class="space-y-1">
-                <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Kunci Jawaban Benar</label>
-                <select id="edit_correct_option" name="correct_option" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
-                    <option value="a">A</option>
-                    <option value="b">B</option>
-                    <option value="c">C</option>
-                    <option value="d">D</option>
+                <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Tipe Soal</label>
+                <select id="edit_type" name="type" onchange="toggleQuestionTypeFields('edit')" class="w-full bg-slate-50 dark:bg-zinc-900 border border-purple-500/40 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 dark:text-white">
+                    <option value="multiple_choice">Pilihan Ganda (Standard A, B, C, D)</option>
+                    <option value="matching">🧩 Pasangan (Menjodohkan Kiri & Kanan)</option>
+                    <option value="ordering">🔢 Susun Urutan (Urutan Langkah/Kronologis)</option>
                 </select>
             </div>
+
+            <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pertanyaan / Instruksi Soal</label>
+                <textarea id="edit_question_text" name="question_text" rows="3" required placeholder="Ketik kalimat soal di sini..." class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white"></textarea>
+            </div>
+
+            <!-- Fieldset Edit: Multiple Choice -->
+            <div id="edit-field-mc" class="space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan A</label>
+                        <input type="text" id="edit_option_a" name="option_a" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan B</label>
+                        <input type="text" id="edit_option_b" name="option_b" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan C</label>
+                        <input type="text" id="edit_option_c" name="option_c" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan D</label>
+                        <input type="text" id="edit_option_d" name="option_d" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Kunci Jawaban Benar</label>
+                    <select id="edit_correct_option" name="correct_option" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
+                        <option value="a">A</option>
+                        <option value="b">B</option>
+                        <option value="c">C</option>
+                        <option value="d">D</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Fieldset Edit: Pasangan (Matching) -->
+            <div id="edit-field-matching" class="hidden space-y-3 bg-purple-50/50 dark:bg-purple-950/20 p-4 border border-purple-200 dark:border-purple-900/40 rounded-2xl">
+                <span class="text-xs font-bold text-purple-700 dark:text-purple-300 block">🧩 Pasangan Kiri & Kanan (Kunci Benar):</span>
+                @for($i = 0; $i < 4; $i++)
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="edit_pair_left_{{ $i }}" name="pair_data[{{ $i }}][left]" placeholder="Kiri {{ $i + 1 }}" class="bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs">
+                        <input type="text" id="edit_pair_right_{{ $i }}" name="pair_data[{{ $i }}][right]" placeholder="Kanan {{ $i + 1 }}" class="bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs">
+                    </div>
+                @endfor
+            </div>
+
+            <!-- Fieldset Edit: Susun Urutan (Ordering) -->
+            <div id="edit-field-ordering" class="hidden space-y-3 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 border border-indigo-200 dark:border-indigo-900/40 rounded-2xl">
+                <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300 block">🔢 Urutan Langkah yang Benar (Top to Bottom):</span>
+                @for($i = 0; $i < 5; $i++)
+                    <div class="flex items-center gap-2">
+                        <span class="w-5 h-5 rounded bg-indigo-600 text-white text-[10px] font-extrabold flex items-center justify-center shrink-0">{{ $i + 1 }}</span>
+                        <input type="text" id="edit_seq_{{ $i }}" name="sequence_data[{{ $i }}]" placeholder="Langkah {{ $i + 1 }}" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs">
+                    </div>
+                @endfor
+            </div>
+
             <div class="space-y-1">
                 <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pembahasan (Langkah & Rumus)</label>
                 <textarea id="edit_explanation" name="explanation" rows="3" placeholder="Tuliskan rumus dan cara penyelesaiannya..." class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white"></textarea>
@@ -511,11 +618,25 @@
 </div>
 
 <script>
+function toggleQuestionTypeFields(prefix) {
+    const typeSelect = document.getElementById(prefix === 'create' ? 'create_question_type' : 'edit_type');
+    const type = typeSelect ? typeSelect.value : 'multiple_choice';
+
+    const mcContainer = document.getElementById(prefix + '-field-mc');
+    const matchingContainer = document.getElementById(prefix + '-field-matching');
+    const orderingContainer = document.getElementById(prefix + '-field-ordering');
+
+    if (mcContainer) mcContainer.classList.toggle('hidden', type !== 'multiple_choice');
+    if (matchingContainer) matchingContainer.classList.toggle('hidden', type !== 'matching');
+    if (orderingContainer) orderingContainer.classList.toggle('hidden', type !== 'ordering');
+}
+
 function openEditQuestionModal(question) {
     const form = document.getElementById('form-edit-question');
     form.action = '/guru/questions/' + question.id;
     
     document.getElementById('edit_exam_id').value = question.exam_id;
+    document.getElementById('edit_type').value = question.type || 'multiple_choice';
     document.getElementById('edit_question_text').value = question.question_text || '';
     document.getElementById('edit_option_a').value = question.option_a || '';
     document.getElementById('edit_option_b').value = question.option_b || '';
@@ -523,7 +644,24 @@ function openEditQuestionModal(question) {
     document.getElementById('edit_option_d').value = question.option_d || '';
     document.getElementById('edit_correct_option').value = question.correct_option || 'a';
     document.getElementById('edit_explanation').value = question.explanation || '';
-    
+
+    // Populate pair_data
+    const pairs = question.pair_data || [];
+    for (let i = 0; i < 4; i++) {
+        const leftInput = document.getElementById('edit_pair_left_' + i);
+        const rightInput = document.getElementById('edit_pair_right_' + i);
+        if (leftInput) leftInput.value = (pairs[i] && pairs[i].left) ? pairs[i].left : '';
+        if (rightInput) rightInput.value = (pairs[i] && pairs[i].right) ? pairs[i].right : '';
+    }
+
+    // Populate sequence_data
+    const seq = question.sequence_data || [];
+    for (let i = 0; i < 5; i++) {
+        const seqInput = document.getElementById('edit_seq_' + i);
+        if (seqInput) seqInput.value = seq[i] || '';
+    }
+
+    toggleQuestionTypeFields('edit');
     document.getElementById('modal-edit-question').classList.remove('hidden');
 }
 </script>
@@ -585,8 +723,9 @@ function openEditQuestionModal(question) {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                     </svg>
                     <input type="file" name="pdf_file" accept=".pdf" required class="block w-full text-xs text-slate-600 dark:text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-500 transition cursor-pointer">
-                    <span class="text-[11px] text-slate-500 dark:text-zinc-500 block">Format didukung: PDF (Maks. 10MB)</span>
-                </div>
+            <div class="flex items-center gap-2 pt-1">
+                <input type="checkbox" name="allow_repeat" id="pdf_allow_repeat" value="1" class="w-4 h-4 text-purple-600 rounded border-slate-300 dark:border-zinc-800 focus:ring-purple-500">
+                <label for="pdf_allow_repeat" class="text-xs font-semibold text-slate-700 dark:text-zinc-300 cursor-pointer">Izinkan Siswa Mengulangi Ujian (Fitur Ulangi)</label>
             </div>
 
             <!-- Guidelines Box -->

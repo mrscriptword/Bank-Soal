@@ -18,6 +18,11 @@ class Exam extends Model
         'grade_level',
         'created_by',
         'status',
+        'allow_repeat',
+    ];
+
+    protected $casts = [
+        'allow_repeat' => 'boolean',
     ];
 
     public function subject()

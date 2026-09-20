@@ -184,23 +184,43 @@ class CbtSeeder extends Seeder
             'explanation' => 'Kecepatan v = s / t = 120 km / 2 jam = 60 km/jam.',
         ]);
 
+        // Soal 11 (Gamifikasi: Pasangan / Menjodohkan Rumus Bangun Datar)
         Question::create([
             'exam_id' => $examMtk->id,
-            'question_text' => 'Rata-rata dari nilai 7, 8, 9, 6, dan 10 adalah...',
-            'option_a' => '8',
-            'option_b' => '8.5',
-            'option_c' => '7.5',
-            'option_d' => '9',
-            'correct_option' => 'a',
-            'explanation' => 'Jumlah nilai = 7 + 8 + 9 + 6 + 10 = 40. Rata-rata = 40 / 5 = 8.',
+            'type' => 'matching',
+            'question_text' => 'Jodohkan nama bangun datar di sebelah kiri dengan rumus luasnya yang tepat di sebelah kanan!',
+            'pair_data' => [
+                ['left' => 'Persegi', 'right' => 's × s'],
+                ['left' => 'Segitiga', 'right' => '½ × a × t'],
+                ['left' => 'Lingkaran', 'right' => 'π × r²'],
+                ['left' => 'Persegi Panjang', 'right' => 'p × l'],
+            ],
+            'explanation' => 'Rumus luas bangun datar: Persegi (s x s), Segitiga (1/2 x a x t), Lingkaran (π x r²), Persegi Panjang (p x l).',
         ]);
+
+        // Soal 12 (Gamifikasi: Susun Urutan Bilangan)
+        Question::create([
+            'exam_id' => $examMtk->id,
+            'type' => 'ordering',
+            'question_text' => 'Susunlah bilangan-bilangan di bawah ini mulai dari nilai terkecil hingga terbesar!',
+            'sequence_data' => [
+                '-15',
+                '-7',
+                '0',
+                '8',
+                '23',
+            ],
+            'explanation' => 'Urutan dari terkecil ke terbesar pada garis bilangan adalah: -15, -7, 0, 8, 23.',
+        ]);
+
+        $examMtk->update(['total_questions' => $examMtk->questions()->count()]);
 
         // 4. Create Exam for Bahasa Indonesia
         $examBin = Exam::create([
             'subject_id' => $bin->id,
             'title' => 'Simulasi Bahasa Indonesia',
             'duration_minutes' => 12,
-            'total_questions' => 8,
+            'total_questions' => 4,
             'passing_score' => 70,
             'grade_level' => 'SD Kelas 5',
             'created_by' => $guru->id,
@@ -209,6 +229,7 @@ class CbtSeeder extends Seeder
 
         Question::create([
             'exam_id' => $examBin->id,
+            'type' => 'multiple_choice',
             'question_text' => 'Manakah di bawah ini yang merupakan kata baku dalam Bahasa Indonesia?',
             'option_a' => 'Kualitas',
             'option_b' => 'Kwalitas',
@@ -220,6 +241,7 @@ class CbtSeeder extends Seeder
 
         Question::create([
             'exam_id' => $examBin->id,
+            'type' => 'multiple_choice',
             'question_text' => 'Ide pokok dalam suatu paragraf biasanya terletak pada...',
             'option_a' => 'Kalimat utama',
             'option_b' => 'Kalimat penjelas',
@@ -229,12 +251,41 @@ class CbtSeeder extends Seeder
             'explanation' => 'Gagasan atau ide pokok terkandung di dalam kalimat utama paragraf.',
         ]);
 
+        Question::create([
+            'exam_id' => $examBin->id,
+            'type' => 'matching',
+            'question_text' => 'Jodohkan jenis teks paragraf berikut dengan ciri utamanya!',
+            'pair_data' => [
+                ['left' => 'Teks Narasi', 'right' => 'Menceritakan urutan peristiwa/cerita'],
+                ['left' => 'Teks Deskripsi', 'right' => 'Gambarkan objek secara detail panca indera'],
+                ['left' => 'Teks Persuasi', 'right' => 'Mengajak atau membujuk pembaca'],
+                ['left' => 'Teks Eksplanasi', 'right' => 'Menjelaskan proses sebab-akibat fenomena'],
+            ],
+            'explanation' => 'Teks narasi = cerita; deskripsi = penggambaran; persuasi = ajakan; eksplanasi = penjelasan fenomena.',
+        ]);
+
+        Question::create([
+            'exam_id' => $examBin->id,
+            'type' => 'ordering',
+            'question_text' => 'Susunlah tahapan menulis karangan teks cerita secara benar!',
+            'sequence_data' => [
+                '1. Menentukan Tema & Judul',
+                '2. Membuat Kerangka Karangan',
+                '3. Mengumpulkan Bahan & Fakta',
+                '4. Mengembangkan Kerangka Karangan',
+                '5. Menyunting & Memeriksa Ejaan',
+            ],
+            'explanation' => 'Urutan tepat menulis cerita: Menentukan Tema -> Kerangka -> Bahan -> Mengembangkan -> Menyunting.',
+        ]);
+
+        $examBin->update(['total_questions' => $examBin->questions()->count()]);
+
         // 5. Create Exam for IPA
         $examIpa = Exam::create([
             'subject_id' => $ipa->id,
             'title' => 'Simulasi IPA & Fisika Dasar',
             'duration_minutes' => 15,
-            'total_questions' => 10,
+            'total_questions' => 4,
             'passing_score' => 70,
             'grade_level' => 'SMP Kelas 7',
             'created_by' => $guru->id,
@@ -243,6 +294,7 @@ class CbtSeeder extends Seeder
 
         Question::create([
             'exam_id' => $examIpa->id,
+            'type' => 'multiple_choice',
             'question_text' => 'Proses pembuatan makanan pada tumbuhan hijau dengan bantuan cahaya matahari disebut...',
             'option_a' => 'Fotosintesis',
             'option_b' => 'Respirasi',
@@ -254,6 +306,7 @@ class CbtSeeder extends Seeder
 
         Question::create([
             'exam_id' => $examIpa->id,
+            'type' => 'multiple_choice',
             'question_text' => 'Organ tubuh manusia yang berfungsi memompa darah ke seluruh tubuh adalah...',
             'option_a' => 'Jantung',
             'option_b' => 'Paru-paru',
@@ -262,5 +315,33 @@ class CbtSeeder extends Seeder
             'correct_option' => 'a',
             'explanation' => 'Jantung adalah organ otot utama yang memompa darah beroksigen ke seluruh jaringan tubuh.',
         ]);
+
+        Question::create([
+            'exam_id' => $examIpa->id,
+            'type' => 'matching',
+            'question_text' => 'Jodohkan organ manusia berikut dengan fungsinya yang sesuai!',
+            'pair_data' => [
+                ['left' => 'Jantung', 'right' => 'Memompa darah ke seluruh tubuh'],
+                ['left' => 'Paru-Paru', 'right' => 'Pertukaran Oksigen dan Karbondioksida'],
+                ['left' => 'Ginjal', 'right' => 'Menyaring sisa metabolisme dari darah'],
+                ['left' => 'Hati', 'right' => 'Menawar racun (detoksifikasi)'],
+            ],
+            'explanation' => 'Fungsi organ: Jantung = pompa darah, Paru-paru = pernapasan, Ginjal = ekskresi darah, Hati = detoksifikasi.',
+        ]);
+
+        Question::create([
+            'exam_id' => $examIpa->id,
+            'type' => 'ordering',
+            'question_text' => 'Susunlah urutan metamorofosis sempurna (daur hidup) kupu-kupu dari awal hingga menjadi kupu-kupu dewasa!',
+            'sequence_data' => [
+                'Tahap 1: Telur',
+                'Tahap 2: Ulat (Larva)',
+                'Tahap 3: Kepompong (Pupa)',
+                'Tahap 4: Kupu-Kupu Dewasa (Imago)',
+            ],
+            'explanation' => 'Daur hidup kupu-kupu: Telur -> Larva (Ulat) -> Pupa (Kepompong) -> Imago (Kupu-kupu dewasa).',
+        ]);
+
+        $examIpa->update(['total_questions' => $examIpa->questions()->count()]);
     }
 }

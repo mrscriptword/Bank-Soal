@@ -74,6 +74,7 @@ class GuruController extends Controller
             'duration_minutes' => $request->duration_minutes,
             'passing_score' => $request->passing_score,
             'grade_level' => $request->grade_level,
+            'allow_repeat' => $request->boolean('allow_repeat'),
             'created_by' => Auth::id() ?? 1,
             'status' => 'active',
         ]);
@@ -85,25 +86,37 @@ class GuruController extends Controller
     {
         $request->validate([
             'exam_id' => 'required|exists:exams,id',
+            'type' => 'nullable|in:multiple_choice,matching,ordering',
             'question_text' => 'required|string',
-            'option_a' => 'required|string',
-            'option_b' => 'required|string',
-            'option_c' => 'required|string',
-            'option_d' => 'required|string',
-            'correct_option' => 'required|in:a,b,c,d',
             'explanation' => 'nullable|string',
         ]);
 
-        Question::create([
+        $type = $request->input('type', 'multiple_choice');
+
+        $data = [
             'exam_id' => $request->exam_id,
+            'type' => $type,
             'question_text' => $request->question_text,
-            'option_a' => $request->option_a,
-            'option_b' => $request->option_b,
-            'option_c' => $request->option_c,
-            'option_d' => $request->option_d,
-            'correct_option' => $request->correct_option,
             'explanation' => $request->explanation,
-        ]);
+        ];
+
+        if ($type === 'matching') {
+            $data['pair_data'] = array_values(array_filter($request->input('pair_data', []), function ($pair) {
+                return !empty($pair['left']) && !empty($pair['right']);
+            }));
+        } elseif ($type === 'ordering') {
+            $data['sequence_data'] = array_values(array_filter($request->input('sequence_data', []), function ($item) {
+                return !empty(trim($item));
+            }));
+        } else {
+            $data['option_a'] = $request->option_a;
+            $data['option_b'] = $request->option_b;
+            $data['option_c'] = $request->option_c;
+            $data['option_d'] = $request->option_d;
+            $data['correct_option'] = strtolower($request->correct_option ?? 'a');
+        }
+
+        Question::create($data);
 
         // Update total questions count on Exam
         $exam = Exam::find($request->exam_id);
@@ -116,27 +129,42 @@ class GuruController extends Controller
     {
         $request->validate([
             'exam_id' => 'required|exists:exams,id',
+            'type' => 'nullable|in:multiple_choice,matching,ordering',
             'question_text' => 'required|string',
-            'option_a' => 'required|string',
-            'option_b' => 'required|string',
-            'option_c' => 'required|string',
-            'option_d' => 'required|string',
-            'correct_option' => 'required|in:a,b,c,d',
             'explanation' => 'nullable|string',
         ]);
 
+        $type = $request->input('type', $question->type ?: 'multiple_choice');
         $oldExamId = $question->exam_id;
 
-        $question->update([
+        $data = [
             'exam_id' => $request->exam_id,
+            'type' => $type,
             'question_text' => $request->question_text,
-            'option_a' => $request->option_a,
-            'option_b' => $request->option_b,
-            'option_c' => $request->option_c,
-            'option_d' => $request->option_d,
-            'correct_option' => $request->correct_option,
             'explanation' => $request->explanation,
-        ]);
+        ];
+
+        if ($type === 'matching') {
+            $data['pair_data'] = array_values(array_filter($request->input('pair_data', []), function ($pair) {
+                return !empty($pair['left']) && !empty($pair['right']);
+            }));
+            $data['sequence_data'] = null;
+        } elseif ($type === 'ordering') {
+            $data['sequence_data'] = array_values(array_filter($request->input('sequence_data', []), function ($item) {
+                return !empty(trim($item));
+            }));
+            $data['pair_data'] = null;
+        } else {
+            $data['option_a'] = $request->option_a;
+            $data['option_b'] = $request->option_b;
+            $data['option_c'] = $request->option_c;
+            $data['option_d'] = $request->option_d;
+            $data['correct_option'] = strtolower($request->correct_option ?? 'a');
+            $data['pair_data'] = null;
+            $data['sequence_data'] = null;
+        }
+
+        $question->update($data);
 
         if ($oldExamId != $request->exam_id) {
             $oldExam = Exam::find($oldExamId);
@@ -202,6 +230,7 @@ class GuruController extends Controller
             'duration_minutes' => $request->duration_minutes,
             'passing_score' => $request->passing_score,
             'grade_level' => $request->grade_level,
+            'allow_repeat' => $request->boolean('allow_repeat'),
             'total_questions' => count($questionsData),
             'created_by' => Auth::id() ?? 1,
             'status' => 'active',

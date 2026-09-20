@@ -11,6 +11,7 @@ class Question extends Model
 
     protected $fillable = [
         'exam_id',
+        'type',
         'question_text',
         'option_a',
         'option_b',
@@ -18,6 +19,13 @@ class Question extends Model
         'option_d',
         'correct_option',
         'explanation',
+        'pair_data',
+        'sequence_data',
+    ];
+
+    protected $casts = [
+        'pair_data' => 'array',
+        'sequence_data' => 'array',
     ];
 
     public function exam()

@@ -13,7 +13,12 @@ class ExamAttemptAnswer extends Model
         'exam_attempt_id',
         'question_id',
         'selected_option',
+        'answer_payload',
         'is_correct',
+    ];
+
+    protected $casts = [
+        'answer_payload' => 'array',
     ];
 
     public function examAttempt()

@@ -71,8 +71,29 @@ class StudentExamController extends Controller
     {
         $exam->load(['subject', 'questions' => function ($q) {
             // Exclude correct_option and explanation during active test
-            $q->select('id', 'exam_id', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d');
+            $q->select('id', 'exam_id', 'type', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'pair_data', 'sequence_data');
         }]);
+
+        // Prepare randomized items for student UI
+        $exam->questions->transform(function ($question) {
+            if ($question->type === 'matching' && is_array($question->pair_data)) {
+                $leftItems = [];
+                $rightItems = [];
+                foreach ($question->pair_data as $pair) {
+                    if (isset($pair['left'])) $leftItems[] = $pair['left'];
+                    if (isset($pair['right'])) $rightItems[] = $pair['right'];
+                }
+                $shuffledRight = $rightItems;
+                shuffle($shuffledRight);
+                $question->left_items = $leftItems;
+                $question->shuffled_right = $shuffledRight;
+            } elseif ($question->type === 'ordering' && is_array($question->sequence_data)) {
+                $shuffledSeq = $question->sequence_data;
+                shuffle($shuffledSeq);
+                $question->shuffled_sequence = $shuffledSeq;
+            }
+            return $question;
+        });
 
         return response()->json([
             'success' => true,
@@ -90,14 +111,14 @@ class StudentExamController extends Controller
 
         $user = Auth::user();
         $exam = Exam::with('questions')->findOrFail($request->exam_id);
-        $answersData = $request->answers; // [question_id => 'a'|'b'|'c'|'d']
+        $answersData = $request->answers;
         $timeTaken = $request->input('time_taken_seconds', 0);
 
         $totalQuestions = $exam->questions->count();
         $correctCount = 0;
 
         $attempt = ExamAttempt::create([
-            'user_id' => $user ? $user->id : 1, // Fallback for guest simulation if any
+            'user_id' => $user ? $user->id : 1,
             'exam_id' => $exam->id,
             'total_questions' => $totalQuestions,
             'time_taken_seconds' => $timeTaken,
@@ -109,8 +130,48 @@ class StudentExamController extends Controller
         $reviewItems = [];
 
         foreach ($exam->questions as $index => $question) {
-            $userOption = strtolower($answersData[$question->id] ?? '');
-            $isCorrect = ($userOption === strtolower($question->correct_option));
+            $rawAnswer = $answersData[$question->id] ?? null;
+            $isCorrect = false;
+            $selectedOptionStr = null;
+            $answerPayload = null;
+
+            if ($question->type === 'matching') {
+                // Matching pairs: expected rawAnswer format: {"Left Text": "Right Text", ...}
+                $answerPayload = is_array($rawAnswer) ? $rawAnswer : json_decode($rawAnswer, true);
+                if (!is_array($answerPayload)) {
+                    $answerPayload = [];
+                }
+
+                $correctPairs = $question->pair_data ?: [];
+                $matchingCorrect = 0;
+                $totalPairs = count($correctPairs);
+
+                if ($totalPairs > 0) {
+                    foreach ($correctPairs as $pair) {
+                        $left = $pair['left'] ?? '';
+                        $expectedRight = $pair['right'] ?? '';
+                        if (isset($answerPayload[$left]) && trim($answerPayload[$left]) === trim($expectedRight)) {
+                            $matchingCorrect++;
+                        }
+                    }
+                    $isCorrect = ($matchingCorrect === $totalPairs);
+                }
+
+            } elseif ($question->type === 'ordering') {
+                // Sequence ordering: expected rawAnswer format: ["Step 1", "Step 2", ...]
+                $answerPayload = is_array($rawAnswer) ? $rawAnswer : json_decode($rawAnswer, true);
+                if (!is_array($answerPayload)) {
+                    $answerPayload = [];
+                }
+
+                $correctSeq = $question->sequence_data ?: [];
+                $isCorrect = (count($answerPayload) === count($correctSeq) && $answerPayload === $correctSeq);
+
+            } else {
+                // Standard multiple choice
+                $selectedOptionStr = is_string($rawAnswer) ? strtolower($rawAnswer) : null;
+                $isCorrect = ($selectedOptionStr && $selectedOptionStr === strtolower($question->correct_option));
+            }
 
             if ($isCorrect) {
                 $correctCount++;
@@ -119,7 +180,8 @@ class StudentExamController extends Controller
             ExamAttemptAnswer::create([
                 'exam_attempt_id' => $attempt->id,
                 'question_id' => $question->id,
-                'selected_option' => $userOption ?: null,
+                'selected_option' => $selectedOptionStr,
+                'answer_payload' => $answerPayload,
                 'is_correct' => $isCorrect,
             ]);
 
@@ -132,12 +194,16 @@ class StudentExamController extends Controller
 
             $reviewItems[] = [
                 'number' => $index + 1,
+                'type' => $question->type ?: 'multiple_choice',
                 'question_text' => $question->question_text,
                 'options' => $optionMap,
-                'selected_option' => $userOption,
-                'correct_option' => strtolower($question->correct_option),
-                'selected_text' => $optionMap[$userOption] ?? 'Tidak dijawab',
-                'correct_text' => $optionMap[strtolower($question->correct_option)] ?? '',
+                'selected_option' => $selectedOptionStr,
+                'correct_option' => strtolower($question->correct_option ?? ''),
+                'selected_text' => $optionMap[$selectedOptionStr] ?? 'Tidak dijawab',
+                'correct_text' => $optionMap[strtolower($question->correct_option ?? '')] ?? '',
+                'answer_payload' => $answerPayload,
+                'pair_data' => $question->pair_data,
+                'sequence_data' => $question->sequence_data,
                 'is_correct' => $isCorrect,
                 'explanation' => $question->explanation ?: 'Belum ada pembahasan khusus untuk soal ini.',
             ];
@@ -155,7 +221,7 @@ class StudentExamController extends Controller
         } else {
             $calculatedScore = 0;
         }
-        
+
         $attempt->update([
             'score' => $calculatedScore,
             'correct_answers' => $correctCount,
@@ -174,6 +240,7 @@ class StudentExamController extends Controller
             'total_questions' => $totalQuestions,
             'time_taken_formatted' => $formattedTime,
             'time_taken_seconds' => $timeTaken,
+            'allow_repeat' => (bool) $exam->allow_repeat,
             'review' => $reviewItems,
         ]);
     }
@@ -186,7 +253,7 @@ class StudentExamController extends Controller
         foreach ($attempt->answers as $index => $ans) {
             $q = $ans->question;
             $userOpt = strtolower($ans->selected_option ?? '');
-            $correctOpt = strtolower($q->correct_option);
+            $correctOpt = strtolower($q->correct_option ?? '');
 
             $optionMap = [
                 'a' => $q->option_a,
@@ -197,12 +264,16 @@ class StudentExamController extends Controller
 
             $reviewItems[] = [
                 'number' => $index + 1,
+                'type' => $q->type ?: 'multiple_choice',
                 'question_text' => $q->question_text,
                 'options' => $optionMap,
                 'selected_option' => $userOpt,
                 'correct_option' => $correctOpt,
                 'selected_text' => $optionMap[$userOpt] ?? 'Tidak dijawab',
                 'correct_text' => $optionMap[$correctOpt] ?? '',
+                'answer_payload' => $ans->answer_payload,
+                'pair_data' => $q->pair_data,
+                'sequence_data' => $q->sequence_data,
                 'is_correct' => $ans->is_correct,
                 'explanation' => $q->explanation ?: 'Tidak ada pembahasan.',
             ];

@@ -1,7 +1,7 @@
 @extends('layouts.cbt')
 
 @section('content')
-<div x-data="simulasiWizard()" x-init="initData()" class="w-full max-w-lg mx-auto">
+<div x-data="simulasiWizard()" x-init="initData()" :class="currentStep === 4 ? 'max-w-5xl' : 'max-w-lg'" class="w-full mx-auto transition-all duration-300">
 
     <!-- Step Container / Card matching reference UI design -->
     <div class="bg-white dark:bg-[#121214] border border-slate-200 dark:border-zinc-800/90 rounded-3xl p-6 sm:p-7 shadow-xl dark:shadow-2xl relative overflow-hidden backdrop-blur-xl transition-colors">
@@ -202,60 +202,291 @@
         <!-- STEP 4: EXAM PLAYER (PENGERJAAN SOAL)      -->
         <!-- ========================================== -->
         <div x-show="currentStep === 4" x-transition.opacity.duration.300ms class="space-y-6">
-            <!-- Subject Title & Question Index Header -->
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-sm">
-                    <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                    </svg>
-                    <span x-text="currentSubject ? currentSubject.title : 'Matematika'"></span>
-                </div>
+            
+            <!-- Top Bar Inside Step 4 -->
+            <div class="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-zinc-800">
                 <div class="flex items-center gap-3">
-                    <span class="text-xs font-semibold text-slate-500 dark:text-zinc-400" x-text="`Soal ${currentQuestionIndex + 1}/${questions.length}`"></span>
-                    <span class="px-2 py-0.5 bg-blue-100 dark:bg-blue-950 border border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-[11px] font-mono rounded" x-text="formatTimer()"></span>
+                    <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                    <div>
+                        <h2 class="font-extrabold text-slate-900 dark:text-white text-base tracking-tight" x-text="currentSubject ? currentSubject.title : 'Matematika'"></h2>
+                        <p class="text-xs text-slate-500 dark:text-zinc-400" x-text="`${questions.length} Soal · ${selectedExam ? selectedExam.duration_minutes : 15} Menit`"></p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <!-- Mobile Nomoring Grid Toggle -->
+                    <button type="button" @click="showQuestionGridMobile = !showQuestionGridMobile"
+                            class="lg:hidden px-3 py-1.5 bg-purple-100 dark:bg-purple-950/80 border border-purple-300 dark:border-purple-800/80 text-purple-700 dark:text-purple-300 text-xs font-bold rounded-xl flex items-center gap-1.5 transition">
+                        <span>🔢</span>
+                        <span x-text="showQuestionGridMobile ? 'Tutup Nomoring' : 'Nomor Soal'"></span>
+                    </button>
+
+                    <!-- Timer Pill -->
+                    <span class="px-3.5 py-1.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 text-xs font-mono font-bold rounded-xl flex items-center gap-1.5 shadow-sm">
+                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        <span x-text="formatTimer()"></span>
+                    </span>
                 </div>
             </div>
 
-            <!-- Progress Bar -->
-            <div class="w-full bg-slate-200 dark:bg-zinc-800/80 rounded-full h-1.5 overflow-hidden">
-                <div class="bg-blue-600 dark:bg-blue-500 h-1.5 rounded-full transition-all duration-300" :style="`width: ${((currentQuestionIndex + 1) / questions.length) * 100}%`"></div>
+            <!-- Grid Layout (Left: Nomoring Soal, Right: Main Question View) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+                <!-- ========================================================= -->
+                <!-- LEFT COLUMN: QUESTION NAVIGATION GRID (NOMORING SOAL 1..N) -->
+                <!-- ========================================================= -->
+                <div :class="showQuestionGridMobile ? 'block' : 'hidden lg:block'"
+                     class="lg:col-span-5 bg-slate-50 dark:bg-[#161618] border border-slate-200 dark:border-zinc-800/90 rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
+                    
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-zinc-800">
+                        <div class="space-y-0.5">
+                            <h3 class="font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                                <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                                </svg>
+                                <span>Pilih Nomor Soal</span>
+                            </h3>
+                            <p class="text-xs text-slate-500 dark:text-zinc-400">Pilih soal secara langsung untuk dijawab</p>
+                        </div>
+                        <span class="px-2.5 py-1 bg-purple-100 dark:bg-purple-950/80 border border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-[11px] font-bold rounded-lg shrink-0"
+                              x-text="`${getAnsweredCount()}/${questions.length} Terjawab`">
+                        </span>
+                    </div>
+
+                    <!-- Nomoring Grid (5 columns, scrollable) -->
+                    <div class="grid grid-cols-5 gap-2.5 max-h-[380px] overflow-y-auto pr-1">
+                        <template x-for="(q, idx) in questions" :key="q.id">
+                            <button type="button"
+                                    @click="jumpToQuestion(idx)"
+                                    :class="{
+                                        'bg-gradient-to-tr from-fuchsia-600 to-indigo-600 text-white font-extrabold ring-2 ring-fuchsia-400 ring-offset-2 dark:ring-offset-zinc-900 shadow-lg shadow-fuchsia-500/30 scale-105 z-10': currentQuestionIndex === idx,
+                                        'bg-purple-100 dark:bg-purple-950/90 text-purple-700 dark:text-purple-300 font-bold border-purple-300 dark:border-purple-800': currentQuestionIndex !== idx && userAnswers[q.id],
+                                        'bg-white dark:bg-[#202024] text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700 font-semibold border-slate-200 dark:border-zinc-800': currentQuestionIndex !== idx && !userAnswers[q.id]
+                                    }"
+                                    class="aspect-square flex flex-col items-center justify-center rounded-xl text-xs sm:text-sm border transition-all duration-150 relative group">
+                                <span x-text="idx + 1"></span>
+                                
+                                <!-- Mini answered badge dot -->
+                                <template x-if="userAnswers[q.id]">
+                                    <span :class="currentQuestionIndex === idx ? 'bg-white' : 'bg-purple-500'" class="w-1.5 h-1.5 rounded-full absolute bottom-1"></span>
+                                </template>
+                            </button>
+                        </template>
+                    </div>
+
+                    <!-- Legend Status Bar -->
+                    <div class="pt-3 border-t border-slate-200 dark:border-zinc-800 grid grid-cols-3 gap-1 text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded bg-gradient-to-tr from-fuchsia-600 to-indigo-600 inline-block shadow-sm"></span>
+                            <span>Aktif</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded bg-purple-100 dark:bg-purple-950 border border-purple-300 dark:border-purple-800 inline-block"></span>
+                            <span>Terjawab</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded bg-white dark:bg-[#202024] border border-slate-200 dark:border-zinc-800 inline-block"></span>
+                            <span>Belum</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- RIGHT COLUMN: QUESTION CONTENT & OPTIONS (MATCHING REF UI) -->
+                <!-- ========================================================= -->
+                <div class="lg:col-span-7 space-y-5">
+                    
+                    <!-- Question Header Card (Soal 1/60 + Glow Pill + Progress Line) -->
+                    <div class="bg-slate-50 dark:bg-[#161618] border border-slate-200 dark:border-zinc-800/90 rounded-2xl p-4 sm:p-5 space-y-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2">
+                                <!-- Vibrant Pink/Purple Gradient Pill matching reference image "Soal 1/60" -->
+                                <span class="px-4 py-1.5 bg-gradient-to-r from-fuchsia-500 via-purple-600 to-indigo-600 text-white font-extrabold text-xs rounded-full shadow-md shadow-purple-500/20 tracking-wide"
+                                      x-text="`Soal ${currentQuestionIndex + 1}/${questions.length}`">
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Progress Line -->
+                        <div class="w-full bg-slate-200 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                            <div class="bg-gradient-to-r from-fuchsia-500 to-indigo-600 h-1.5 rounded-full transition-all duration-300"
+                                 :style="`width: ${((currentQuestionIndex + 1) / questions.length) * 100}%`"></div>
+                        </div>
+
+                        <!-- Question Text -->
+                        <div class="pt-2 flex items-center justify-between gap-3">
+                            <p class="text-base sm:text-lg font-bold text-slate-900 dark:text-zinc-100 leading-relaxed"
+                               x-text="currentQuestion ? currentQuestion.question_text : ''"></p>
+                        </div>
+                    </div>
+
+                    <!-- Question Options & Interactivity Container -->
+                    <div class="space-y-4" x-if="currentQuestion">
+
+                        <!-- 1. MULTIPLE CHOICE QUESTION TYPE -->
+                        <template x-if="!currentQuestion?.type || currentQuestion?.type === 'multiple_choice'">
+                            <div class="space-y-3">
+                                <!-- Option A -->
+                                <label @click="selectOption('a')"
+                                       :class="userAnswers[currentQuestion?.id] === 'a' 
+                                           ? 'bg-purple-50/80 dark:bg-[#1f1430] border-purple-500 ring-1 ring-purple-500 text-slate-900 dark:text-white shadow-md' 
+                                           : 'bg-white dark:bg-[#161618] border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-purple-300 dark:hover:border-zinc-700'"
+                                       class="flex items-center gap-4 p-4 rounded-2xl border transition cursor-pointer group">
+                                    <div :class="userAnswers[currentQuestion?.id] === 'a' 
+                                            ? 'bg-gradient-to-tr from-fuchsia-600 to-indigo-600 text-white shadow-md shadow-fuchsia-500/30' 
+                                            : 'bg-slate-100 dark:bg-[#222226] text-purple-700 dark:text-purple-400 group-hover:bg-purple-100 dark:group-hover:bg-purple-950/60'"
+                                         class="w-9 h-9 rounded-full font-extrabold text-sm flex items-center justify-center shrink-0 transition">
+                                        A
+                                    </div>
+                                    <span class="font-semibold text-sm sm:text-base leading-snug" x-text="currentQuestion?.option_a"></span>
+                                </label>
+
+                                <!-- Option B -->
+                                <label @click="selectOption('b')"
+                                       :class="userAnswers[currentQuestion?.id] === 'b' 
+                                           ? 'bg-purple-50/80 dark:bg-[#1f1430] border-purple-500 ring-1 ring-purple-500 text-slate-900 dark:text-white shadow-md' 
+                                           : 'bg-white dark:bg-[#161618] border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-purple-300 dark:hover:border-zinc-700'"
+                                       class="flex items-center gap-4 p-4 rounded-2xl border transition cursor-pointer group">
+                                    <div :class="userAnswers[currentQuestion?.id] === 'b' 
+                                            ? 'bg-gradient-to-tr from-fuchsia-600 to-indigo-600 text-white shadow-md shadow-fuchsia-500/30' 
+                                            : 'bg-slate-100 dark:bg-[#222226] text-purple-700 dark:text-purple-400 group-hover:bg-purple-100 dark:group-hover:bg-purple-950/60'"
+                                         class="w-9 h-9 rounded-full font-extrabold text-sm flex items-center justify-center shrink-0 transition">
+                                        B
+                                    </div>
+                                    <span class="font-semibold text-sm sm:text-base leading-snug" x-text="currentQuestion?.option_b"></span>
+                                </label>
+
+                                <!-- Option C -->
+                                <label @click="selectOption('c')"
+                                       :class="userAnswers[currentQuestion?.id] === 'c' 
+                                           ? 'bg-purple-50/80 dark:bg-[#1f1430] border-purple-500 ring-1 ring-purple-500 text-slate-900 dark:text-white shadow-md' 
+                                           : 'bg-white dark:bg-[#161618] border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-purple-300 dark:hover:border-zinc-700'"
+                                       class="flex items-center gap-4 p-4 rounded-2xl border transition cursor-pointer group">
+                                    <div :class="userAnswers[currentQuestion?.id] === 'c' 
+                                            ? 'bg-gradient-to-tr from-fuchsia-600 to-indigo-600 text-white shadow-md shadow-fuchsia-500/30' 
+                                            : 'bg-slate-100 dark:bg-[#222226] text-purple-700 dark:text-purple-400 group-hover:bg-purple-100 dark:group-hover:bg-purple-950/60'"
+                                         class="w-9 h-9 rounded-full font-extrabold text-sm flex items-center justify-center shrink-0 transition">
+                                        C
+                                    </div>
+                                    <span class="font-semibold text-sm sm:text-base leading-snug" x-text="currentQuestion?.option_c"></span>
+                                </label>
+
+                                <!-- Option D -->
+                                <label @click="selectOption('d')"
+                                       :class="userAnswers[currentQuestion?.id] === 'd' 
+                                           ? 'bg-purple-50/80 dark:bg-[#1f1430] border-purple-500 ring-1 ring-purple-500 text-slate-900 dark:text-white shadow-md' 
+                                           : 'bg-white dark:bg-[#161618] border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-purple-300 dark:hover:border-zinc-700'"
+                                       class="flex items-center gap-4 p-4 rounded-2xl border transition cursor-pointer group">
+                                    <div :class="userAnswers[currentQuestion?.id] === 'd' 
+                                            ? 'bg-gradient-to-tr from-fuchsia-600 to-indigo-600 text-white shadow-md shadow-fuchsia-500/30' 
+                                            : 'bg-slate-100 dark:bg-[#222226] text-purple-700 dark:text-purple-400 group-hover:bg-purple-100 dark:group-hover:bg-purple-950/60'"
+                                         class="w-9 h-9 rounded-full font-extrabold text-sm flex items-center justify-center shrink-0 transition">
+                                        D
+                                    </div>
+                                    <span class="font-semibold text-sm sm:text-base leading-snug" x-text="currentQuestion?.option_d"></span>
+                                </label>
+                            </div>
+                        </template>
+
+                        <!-- 2. PASANGAN / MENJODOHKAN QUESTION TYPE -->
+                        <template x-if="currentQuestion?.type === 'matching'">
+                            <div class="space-y-4 bg-slate-50 dark:bg-[#161618] border border-slate-200 dark:border-zinc-800/90 rounded-2xl p-4 sm:p-5">
+                                <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-zinc-800">
+                                    <span class="text-xs font-bold text-slate-600 dark:text-zinc-400 flex items-center gap-1.5">
+                                        <span>🧩</span> Pilih Pasangan yang Tepat:
+                                    </span>
+                                    <span class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800"
+                                          x-text="`${getMatchingPairsCount(currentQuestion.id)}/${currentQuestion.left_items?.length || 0} Terpasang`"></span>
+                                </div>
+
+                                <div class="space-y-3">
+                                    <template x-for="(leftItem, lIdx) in (currentQuestion?.left_items || [])" :key="lIdx">
+                                        <div class="bg-white dark:bg-[#202024] border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+                                            <div class="flex items-center gap-2 font-semibold text-sm text-slate-800 dark:text-zinc-200">
+                                                <span class="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-400 text-xs font-extrabold flex items-center justify-center shrink-0" x-text="lIdx + 1"></span>
+                                                <span x-text="leftItem"></span>
+                                            </div>
+                                            <div class="flex items-center gap-2 shrink-0">
+                                                <span class="text-slate-400 text-xs">➔</span>
+                                                <select :value="getMatchingSelected(currentQuestion.id, leftItem)"
+                                                        @change="setMatchingPair(currentQuestion.id, leftItem, $event.target.value)"
+                                                        class="bg-slate-50 dark:bg-[#161618] border border-slate-300 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-zinc-200 focus:outline-none focus:border-purple-500 min-w-[200px]">
+                                                    <option value="">-- Pilih Pasangan --</option>
+                                                    <template x-for="(rItem, rIdx) in (currentQuestion?.shuffled_right || [])" :key="rIdx">
+                                                        <option :value="rItem" x-text="rItem"></option>
+                                                    </template>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- 3. SUSUN URUTAN QUESTION TYPE -->
+                        <template x-if="currentQuestion?.type === 'ordering'">
+                            <div class="space-y-4 bg-slate-50 dark:bg-[#161618] border border-slate-200 dark:border-zinc-800/90 rounded-2xl p-4 sm:p-5">
+                                <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-zinc-800">
+                                    <span class="text-xs font-bold text-slate-600 dark:text-zinc-400 flex items-center gap-1.5">
+                                        <span>🔢</span> Urutkan Langkah Dari Atas ke Bawah (1 → N):
+                                    </span>
+                                    <span class="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">Gunakan ▲ / ▼</span>
+                                </div>
+
+                                <div class="space-y-2.5">
+                                    <template x-for="(item, oIdx) in getOrderingItems(currentQuestion.id)" :key="oIdx">
+                                        <div class="bg-white dark:bg-[#202024] border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 flex items-center justify-between gap-3 shadow-sm transition hover:border-indigo-300 dark:hover:border-indigo-800">
+                                            <div class="flex items-center gap-3">
+                                                <span class="w-7 h-7 rounded-lg bg-gradient-to-tr from-fuchsia-600 to-indigo-600 text-white text-xs font-black flex items-center justify-center shrink-0 shadow-sm" x-text="oIdx + 1"></span>
+                                                <span class="font-bold text-sm text-slate-800 dark:text-zinc-100" x-text="item"></span>
+                                            </div>
+                                            <div class="flex items-center gap-1.5 shrink-0">
+                                                <button type="button" @click="moveOrderingItem(currentQuestion.id, oIdx, 'up')" :disabled="oIdx === 0"
+                                                        :class="oIdx === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'"
+                                                        class="p-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-xs font-bold transition flex items-center gap-1">
+                                                    <span>▲</span> <span class="hidden sm:inline">Naik</span>
+                                                </button>
+                                                <button type="button" @click="moveOrderingItem(currentQuestion.id, oIdx, 'down')" :disabled="oIdx === getOrderingItems(currentQuestion.id).length - 1"
+                                                        :class="oIdx === getOrderingItems(currentQuestion.id).length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'"
+                                                        class="p-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-xs font-bold transition flex items-center gap-1">
+                                                    <span>▼</span> <span class="hidden sm:inline">Turun</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                    </div>
+
+                    <!-- In-card Navigation Controls (< Sebelumnya, Selanjutnya >) -->
+                    <div class="flex items-center justify-between gap-3 pt-2">
+                        <button type="button" @click="prevQuestion()" :disabled="currentQuestionIndex === 0"
+                                :class="currentQuestionIndex === 0 ? 'opacity-40 cursor-not-allowed text-slate-400 dark:text-zinc-600 bg-slate-100 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800' : 'text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-[#1e1e22] hover:bg-slate-200 dark:hover:bg-zinc-800 border-slate-300 dark:border-zinc-800'"
+                                class="px-5 py-2.5 rounded-xl border text-xs sm:text-sm font-semibold transition flex items-center gap-1.5">
+                            <span>‹ Sebelumnya</span>
+                        </button>
+
+                        <template x-if="currentQuestionIndex < questions.length - 1">
+                            <button type="button" @click="nextQuestion()"
+                                    class="px-5 py-2.5 bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-bold rounded-xl transition shadow-md shadow-purple-500/20 flex items-center gap-1.5">
+                                <span>Selanjutnya ›</span>
+                            </button>
+                        </template>
+
+                        <template x-if="currentQuestionIndex === questions.length - 1">
+                            <button type="button" @click="confirmSubmit()"
+                                    class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold rounded-xl transition shadow-md shadow-emerald-600/20 flex items-center gap-1.5">
+                                <span>✓ Selesai & Kirim</span>
+                            </button>
+                        </template>
+                    </div>
+
+                </div>
+
             </div>
 
-            <!-- Question Text -->
-            <div class="py-2">
-                <p class="text-base font-semibold text-slate-900 dark:text-zinc-100 leading-relaxed" x-text="currentQuestion ? currentQuestion.question_text : ''"></p>
-            </div>
-
-            <!-- Radio Options -->
-            <div class="space-y-3" x-if="currentQuestion">
-                <!-- Option A -->
-                <label @click="selectOption('a')"
-                       :class="userAnswers[currentQuestion?.id] === 'a' ? 'bg-blue-50 dark:bg-[#0f2240] border-blue-500 text-slate-900 dark:text-white shadow-md' : 'bg-slate-50 dark:bg-[#18181b] border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'"
-                       class="flex items-center p-4 rounded-xl border transition cursor-pointer">
-                    <span class="font-semibold text-sm" x-text="currentQuestion?.option_a"></span>
-                </label>
-
-                <!-- Option B -->
-                <label @click="selectOption('b')"
-                       :class="userAnswers[currentQuestion?.id] === 'b' ? 'bg-blue-50 dark:bg-[#0f2240] border-blue-500 text-slate-900 dark:text-white shadow-md' : 'bg-slate-50 dark:bg-[#18181b] border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'"
-                       class="flex items-center p-4 rounded-xl border transition cursor-pointer">
-                    <span class="font-semibold text-sm" x-text="currentQuestion?.option_b"></span>
-                </label>
-
-                <!-- Option C -->
-                <label @click="selectOption('c')"
-                       :class="userAnswers[currentQuestion?.id] === 'c' ? 'bg-blue-50 dark:bg-[#0f2240] border-blue-500 text-slate-900 dark:text-white shadow-md' : 'bg-slate-50 dark:bg-[#18181b] border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'"
-                       class="flex items-center p-4 rounded-xl border transition cursor-pointer">
-                    <span class="font-semibold text-sm" x-text="currentQuestion?.option_c"></span>
-                </label>
-
-                <!-- Option D -->
-                <label @click="selectOption('d')"
-                       :class="userAnswers[currentQuestion?.id] === 'd' ? 'bg-blue-50 dark:bg-[#0f2240] border-blue-500 text-slate-900 dark:text-white shadow-md' : 'bg-slate-50 dark:bg-[#18181b] border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'"
-                       class="flex items-center p-4 rounded-xl border transition cursor-pointer">
-                    <span class="font-semibold text-sm" x-text="currentQuestion?.option_d"></span>
-                </label>
-            </div>
         </div>
 
         <!-- ========================================== -->
@@ -307,7 +538,7 @@
         <!-- ========================================== -->
         <!-- COMMON FOOTER BUTTONS                      -->
         <!-- ========================================== -->
-        <div class="pt-6 mt-6 border-t border-slate-200 dark:border-zinc-800/80">
+        <div x-show="currentStep !== 4" class="pt-6 mt-6 border-t border-slate-200 dark:border-zinc-800/80">
             <!-- Bottom Navigation Buttons (Kembali / Lanjut / Ulangi) -->
             <div class="flex items-center justify-between gap-3">
                 <!-- Back Button -->
@@ -339,14 +570,7 @@
                     </button>
                 </template>
 
-                <template x-if="currentStep === 4">
-                    <button type="button" @click="nextQuestionOrSubmit()"
-                            class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition shadow-md">
-                        <span x-text="currentQuestionIndex < questions.length - 1 ? 'Lanjut' : 'Selesai'"></span>
-                    </button>
-                </template>
-
-                <template x-if="currentStep === 5">
+                <template x-if="currentStep === 5 && ((selectedExam && selectedExam.allow_repeat) || (examResult && examResult.allow_repeat))">
                     <button type="button" @click="repeatExam()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition shadow-md">
                         Ulangi
                     </button>
@@ -385,16 +609,69 @@
 
                         <p class="text-sm font-medium text-slate-900 dark:text-white" x-text="item.question_text"></p>
 
+                        <!-- Review Item Details -->
                         <div class="space-y-1.5 text-xs">
-                            <div class="flex items-center gap-2">
-                                <span class="text-slate-500 dark:text-zinc-400">Jawabanmu:</span>
-                                <span :class="item.is_correct ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-rose-700 dark:text-rose-400 font-bold'" x-text="`${item.selected_option ? item.selected_option.toUpperCase() + '. ' : ''}${item.selected_text}`"></span>
-                            </div>
+                            <!-- MULTIPLE CHOICE REVIEW -->
+                            <template x-if="!item.type || item.type === 'multiple_choice'">
+                                <div class="space-y-1.5">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-slate-500 dark:text-zinc-400">Jawabanmu:</span>
+                                        <span :class="item.is_correct ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-rose-700 dark:text-rose-400 font-bold'" x-text="`${item.selected_option ? item.selected_option.toUpperCase() + '. ' : ''}${item.selected_text}`"></span>
+                                    </div>
 
-                            <div x-show="!item.is_correct" class="flex items-center gap-2">
-                                <span class="text-slate-500 dark:text-zinc-400">Jawaban Benar:</span>
-                                <span class="text-emerald-700 dark:text-emerald-400 font-bold" x-text="`${item.correct_option.toUpperCase()}. ${item.correct_text}`"></span>
-                            </div>
+                                    <div x-show="!item.is_correct" class="flex items-center gap-2">
+                                        <span class="text-slate-500 dark:text-zinc-400">Jawaban Benar:</span>
+                                        <span class="text-emerald-700 dark:text-emerald-400 font-bold" x-text="`${item.correct_option ? item.correct_option.toUpperCase() + '. ' : ''}${item.correct_text}`"></span>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- MATCHING REVIEW -->
+                            <template x-if="item.type === 'matching'">
+                                <div class="space-y-2 pt-1">
+                                    <span class="font-bold text-slate-700 dark:text-zinc-300 block">Review Pasangan:</span>
+                                    <div class="grid grid-cols-1 gap-1.5">
+                                        <template x-for="pair in (item.pair_data || [])" :key="pair.left">
+                                            <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#202024] border border-slate-200 dark:border-zinc-800">
+                                                <span class="font-semibold text-slate-800 dark:text-zinc-200" x-text="pair.left"></span>
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-slate-400">➔</span>
+                                                    <span :class="item.answer_payload && item.answer_payload[pair.left] === pair.right ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-rose-600 dark:text-rose-400 font-semibold'"
+                                                          x-text="item.answer_payload && item.answer_payload[pair.left] ? item.answer_payload[pair.left] : 'Belum Dipilih'"></span>
+                                                    <span x-show="item.answer_payload && item.answer_payload[pair.left] !== pair.right" class="text-[10px] text-slate-400"> (Kunci: <span class="font-bold text-emerald-600" x-text="pair.right"></span>)</span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- ORDERING REVIEW -->
+                            <template x-if="item.type === 'ordering'">
+                                <div class="space-y-2 pt-1">
+                                    <span class="font-bold text-slate-700 dark:text-zinc-300 block">Review Urutan:</span>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div class="space-y-1">
+                                            <span class="text-[11px] font-semibold text-slate-500">Urutan Jawabanmu:</span>
+                                            <template x-for="(sItem, sIdx) in (item.answer_payload || [])" :key="sIdx">
+                                                <div class="p-1.5 rounded-lg bg-white dark:bg-[#202024] border border-slate-200 dark:border-zinc-800 text-[11px] font-medium flex items-center gap-1.5">
+                                                    <span class="w-4 h-4 rounded bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300 text-[10px] font-bold flex items-center justify-center" x-text="sIdx + 1"></span>
+                                                    <span x-text="sItem"></span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                        <div class="space-y-1">
+                                            <span class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">Kunci Urutan Benar:</span>
+                                            <template x-for="(cItem, cIdx) in (item.sequence_data || [])" :key="cIdx">
+                                                <div class="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                                                    <span class="w-4 h-4 rounded bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center" x-text="cIdx + 1"></span>
+                                                    <span x-text="cItem"></span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
 
                         <div class="pt-3 border-t border-slate-200 dark:border-zinc-800/80 bg-slate-100 dark:bg-zinc-900/60 -mx-5 -mb-5 p-4 rounded-b-2xl">
@@ -438,6 +715,44 @@
             timerInterval: null,
             timeTakenSeconds: 0,
             showPembahasanModal: false,
+            showQuestionGridMobile: false,
+
+            jumpToQuestion(index) {
+                if (index >= 0 && index < this.questions.length) {
+                    this.currentQuestionIndex = index;
+                    this.showQuestionGridMobile = false;
+                }
+            },
+
+            getAnsweredCount() {
+                return Object.keys(this.userAnswers).filter(k => !!this.userAnswers[k]).length;
+            },
+
+            prevQuestion() {
+                if (this.currentQuestionIndex > 0) {
+                    this.currentQuestionIndex--;
+                }
+            },
+
+            nextQuestion() {
+                if (this.currentQuestionIndex < this.questions.length - 1) {
+                    this.currentQuestionIndex++;
+                }
+            },
+
+            confirmSubmit() {
+                const answered = this.getAnsweredCount();
+                const total = this.questions.length;
+                if (answered < total) {
+                    if (confirm(`Kamu baru menjawab ${answered} dari ${total} soal. Yakin ingin mengumpulkan sekarang?`)) {
+                        this.submitExam();
+                    }
+                } else {
+                    if (confirm('Yakin ingin mengumpulkan jawaban ujian?')) {
+                        this.submitExam();
+                    }
+                }
+            },
 
             loginForm: {
                 username: '',
@@ -565,6 +880,47 @@
             selectOption(optionKey) {
                 if (this.currentQuestion) {
                     this.userAnswers[this.currentQuestion.id] = optionKey;
+                }
+            },
+
+            getMatchingSelected(questionId, leftItem) {
+                if (!this.userAnswers[questionId] || typeof this.userAnswers[questionId] !== 'object') return '';
+                return this.userAnswers[questionId][leftItem] || '';
+            },
+
+            setMatchingPair(questionId, leftItem, rightItem) {
+                if (!this.userAnswers[questionId] || typeof this.userAnswers[questionId] !== 'object') {
+                    this.userAnswers[questionId] = {};
+                }
+                this.userAnswers[questionId][leftItem] = rightItem;
+            },
+
+            getMatchingPairsCount(questionId) {
+                const ans = this.userAnswers[questionId];
+                if (!ans || typeof ans !== 'object') return 0;
+                return Object.keys(ans).filter(k => !!ans[k]).length;
+            },
+
+            getOrderingItems(questionId) {
+                if (!this.userAnswers[questionId] || !Array.isArray(this.userAnswers[questionId])) {
+                    const q = this.questions.find(item => item.id === questionId);
+                    if (q) {
+                        this.userAnswers[questionId] = q.shuffled_sequence ? [...q.shuffled_sequence] : (q.sequence_data ? [...q.sequence_data] : []);
+                    } else {
+                        this.userAnswers[questionId] = [];
+                    }
+                }
+                return this.userAnswers[questionId];
+            },
+
+            moveOrderingItem(questionId, index, direction) {
+                const items = [...this.getOrderingItems(questionId)];
+                const targetIdx = direction === 'up' ? index - 1 : index + 1;
+                if (targetIdx >= 0 && targetIdx < items.length) {
+                    const temp = items[index];
+                    items[index] = items[targetIdx];
+                    items[targetIdx] = temp;
+                    this.userAnswers[questionId] = items;
                 }
             },
 
