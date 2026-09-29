@@ -25,6 +25,8 @@ Route::get('/api/attempts/{attempt}/review', [StudentExamController::class, 'get
 Route::middleware(['auth'])->group(function () {
     Route::get('/guru/dashboard', [GuruController::class, 'dashboard'])->name('guru.dashboard');
     Route::get('/guru/exams/template-download', [GuruController::class, 'downloadTemplate'])->name('guru.exams.template');
+    Route::get('/guru/exams/{exam}/export-results', [GuruController::class, 'exportExamResults'])->name('guru.exams.export-results');
+    Route::get('/guru/results/export-all', [GuruController::class, 'exportAllResults'])->name('guru.results.export-all');
     Route::post('/guru/exams', [GuruController::class, 'storeExam'])->name('guru.exams.store');
     Route::post('/guru/exams/import-pdf', [GuruController::class, 'importExamFromPdf'])->name('guru.exams.import');
     Route::delete('/guru/exams/{exam}', [GuruController::class, 'destroyExam'])->name('guru.exams.destroy');
@@ -37,6 +39,8 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
     Route::post('/admin/users', [AdminController::class, 'storeUser'])->name('admin.users.store');
+    Route::post('/admin/users/import', [AdminController::class, 'importUsers'])->name('admin.users.import');
+    Route::get('/admin/users/template-download', [AdminController::class, 'downloadTemplate'])->name('admin.users.template');
     Route::delete('/admin/users/{user}', [AdminController::class, 'destroyUser'])->name('admin.users.destroy');
     Route::post('/admin/subjects', [AdminController::class, 'storeSubject'])->name('admin.subjects.store');
 });

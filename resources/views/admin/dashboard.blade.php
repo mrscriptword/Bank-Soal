@@ -14,9 +14,12 @@
             <p class="text-xs text-slate-500 dark:text-zinc-400 mt-1">Tambah akun siswa, guru, admin, serta kelola struktur mata pelajaran.</p>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-2.5">
+            <button onclick="document.getElementById('modal-import-user').classList.remove('hidden')" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center gap-2">
+                <span>📥</span> Import Excel / CSV
+            </button>
             <button onclick="document.getElementById('modal-user').classList.remove('hidden')" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-blue-600/20 flex items-center gap-2">
-                <span>+</span> Tambah Akun Pengguna
+                <span>+</span> Tambah Akun
             </button>
             <button onclick="document.getElementById('modal-subject').classList.remove('hidden')" class="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-purple-600/20 flex items-center gap-2">
                 <span>+</span> Tambah Mata Pelajaran
@@ -230,6 +233,83 @@
             </div>
             <button type="submit" class="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-purple-600/20">
                 Simpan Mata Pelajaran
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Import Users (Excel / CSV) -->
+<div id="modal-import-user" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div class="bg-white dark:bg-[#141416] border border-slate-200 dark:border-zinc-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
+            <div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span class="text-emerald-600 dark:text-emerald-400">📊</span> Import Akun Siswa & Guru
+                </h3>
+                <p class="text-xs text-slate-500 dark:text-zinc-400">Unggah file spreadsheet (Excel / CSV) untuk menambahkan banyak pengguna sekaligus.</p>
+            </div>
+            <button onclick="document.getElementById('modal-import-user').classList.add('hidden')" class="text-slate-400 hover:text-slate-900 dark:hover:text-white text-lg">✕</button>
+        </div>
+
+        <!-- Download Template Options -->
+        <div class="p-3.5 bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40 rounded-2xl space-y-2">
+            <span class="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                <span>📄</span> Belum punya format tabel? Unduh template contoh:
+            </span>
+            <div class="flex items-center gap-2 pt-1">
+                <a href="{{ route('admin.users.template', ['format' => 'xls']) }}" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition shadow-xs flex items-center gap-1.5">
+                    <span>📊</span> Unduh Template Excel (.xls)
+                </a>
+                <a href="{{ route('admin.users.template', ['format' => 'csv']) }}" class="px-3 py-1.5 bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 text-xs font-bold rounded-lg transition flex items-center gap-1.5">
+                    <span>📄</span> Unduh Template CSV
+                </a>
+            </div>
+        </div>
+
+        <form action="{{ route('admin.users.import') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+            @csrf
+            
+            <div class="space-y-1.5">
+                <label class="text-xs font-bold text-slate-700 dark:text-zinc-300">Pilih File Spreadsheet (Excel / CSV)</label>
+                <input type="file" name="file" required accept=".csv, .xls, .xlsx, text/csv, application/vnd.ms-excel"
+                       class="block w-full text-xs text-slate-600 dark:text-zinc-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 transition cursor-pointer border border-slate-300 dark:border-zinc-800 rounded-xl p-1 bg-slate-50 dark:bg-zinc-900">
+                <span class="text-[10px] text-slate-400 dark:text-zinc-500 block">Mendukung format: .xlsx, .xls, .csv, dan .txt</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Peran Akun (Role)</label>
+                    <select name="default_role" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                        <option value="auto">Otomatis dari Kolom 'Role'</option>
+                        <option value="murid">Paksa Semua Sebagai Murid</option>
+                        <option value="guru">Paksa Semua Sebagai Guru</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Default Jenjang (Jika Kosong)</label>
+                    <select name="default_grade" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                        <option value="SMP Kelas 7">SMP Kelas 7</option>
+                        <option value="SMP Kelas 8">SMP Kelas 8</option>
+                        <option value="SD Kelas 4">SD Kelas 4</option>
+                        <option value="SD Kelas 5">SD Kelas 5</option>
+                        <option value="ALL">ALL (Semua Jenjang)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Petunjuk Kolom -->
+            <div class="p-3 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-xl space-y-1.5 text-[11px] text-slate-600 dark:text-zinc-400">
+                <span class="font-bold text-slate-700 dark:text-zinc-300 block">💡 Ketentuan Nama Kolom Header:</span>
+                <p>• <b>Nama Lengkap</b> (atau <i>nama</i>, <i>nama_siswa</i>)</p>
+                <p>• <b>Username</b> (atau <i>nisn</i>, <i>nip</i>, <i>user</i>)</p>
+                <p>• <b>Email</b> (jika kosong dibuatkan otomatis <code>username@simulasiku.id</code>)</p>
+                <p>• <b>Password</b> (jika kosong otomatis diisi <code>password123</code>)</p>
+                <p>• <b>Role</b> (diisi <code>murid</code> atau <code>guru</code>)</p>
+                <p>• <b>Jenjang</b> (contoh: <code>SMP Kelas 7</code>, <code>SD Kelas 4</code>, <code>ALL</code>)</p>
+            </div>
+
+            <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2">
+                <span>🚀</span> Mulai Import Pengguna
             </button>
         </form>
     </div>

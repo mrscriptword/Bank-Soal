@@ -17,6 +17,7 @@ class Question extends Model
         'bobot',
         'type',
         'question_text',
+        'image',
         'option_a',
         'option_b',
         'option_c',

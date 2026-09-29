@@ -14,14 +14,17 @@
             <p class="text-xs text-slate-500 dark:text-zinc-400 mt-1">Buat paket simulasi, pantau siswa yang sudah/belum mengerjakan, dan kelola bank soal.</p>
         </div>
 
-        <div class="flex flex-wrap items-center gap-3">
-            <a href="#modal-pdf-exam" onclick="document.getElementById('modal-pdf-exam').classList.remove('hidden')" class="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-purple-600/20 flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2.5">
+            <a href="{{ route('guru.results.export-all') }}" class="px-3.5 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-emerald-700/20 flex items-center gap-1.5" title="Export Rekap Seluruh Nilai Siswa">
+                <span>📥</span> Export Semua Nilai (.xls)
+            </a>
+            <a href="#modal-pdf-exam" onclick="document.getElementById('modal-pdf-exam').classList.remove('hidden')" class="px-3.5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-purple-600/20 flex items-center gap-1.5">
                 <span>📄</span> Upload PDF Ujian
             </a>
-            <a href="#modal-exam" onclick="document.getElementById('modal-exam').classList.remove('hidden')" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-blue-600/20 flex items-center gap-2">
+            <a href="#modal-exam" onclick="document.getElementById('modal-exam').classList.remove('hidden')" class="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-blue-600/20 flex items-center gap-1.5">
                 <span>+</span> Paket Manual
             </a>
-            <a href="#modal-question" onclick="document.getElementById('modal-question').classList.remove('hidden')" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center gap-2">
+            <a href="#modal-question" onclick="document.getElementById('modal-question').classList.remove('hidden')" class="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center gap-1.5">
                 <span>+</span> Input Soal
             </a>
         </div>
@@ -112,6 +115,9 @@
                                 </div>
 
                                 <div class="flex items-center gap-2 shrink-0">
+                                    <a href="{{ route('guru.exams.export-results', $exam->id) }}" title="Export Nilai Siswa ke Excel (.xls)" class="px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 text-xs font-semibold rounded-xl flex items-center gap-1 transition">
+                                        <span>📊</span> Export Nilai (.xls)
+                                    </a>
                                     <button type="button" @click="open = !open" class="px-3 py-1.5 bg-white dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5 transition">
                                         <span x-text="open ? '📂 Sembunyikan' : '📁 Detail & Soal (' + {{ $exam->questions->count() }} + ')'"></span>
                                     </button>
@@ -165,6 +171,14 @@
                                                         <span class="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800 text-[10px] font-bold rounded-md inline-flex items-center gap-1">
                                                             🔢 Susun Urutan
                                                         </span>
+                                                    @elseif($q->type === 'true_false_table')
+                                                        <span class="px-2 py-0.5 bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-800 text-[10px] font-bold rounded-md inline-flex items-center gap-1">
+                                                            ✅ Benar/Salah
+                                                        </span>
+                                                    @elseif($q->type === 'multiple_select')
+                                                        <span class="px-2 py-0.5 bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[10px] font-bold rounded-md inline-flex items-center gap-1">
+                                                            ☑️ PG Kompleks
+                                                        </span>
                                                     @endif
                                                     @if($q->cognitive_level)
                                                         @php $cogColors = ['C1'=>'bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-800','C2'=>'bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border-teal-300 dark:border-teal-800','C3'=>'bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800','C4'=>'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800']; @endphp
@@ -177,7 +191,7 @@
                                                     @endif
                                                     @if(str_contains($q->explanation ?? '', 'KUNCI DEFAULT'))
                                                         <span class="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800/80 text-[10px] font-bold rounded-md inline-flex items-center gap-1">
-                                                            ⚠️ Kunci Default (Perlu Dicek)
+                                                             Kunci Default (Perlu Dicek)
                                                         </span>
                                                     @endif
                                                 </div>
@@ -201,12 +215,40 @@
                                                             </span>
                                                         @endforeach
                                                     </div>
+                                                @elseif($q->type === 'true_false_table' && is_array($q->pair_data))
+                                                    <div class="flex flex-wrap gap-2 text-[11px] text-teal-700 dark:text-teal-300 pt-1 font-medium">
+                                                        @foreach($q->pair_data as $tIdx => $tRow)
+                                                            <span class="bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded border border-teal-200 dark:border-teal-900/50">
+                                                                {{ chr(65 + $tIdx) }}. {{ Str::limit($tRow['statement'] ?? '', 30) }} ➔ <strong class="{{ ($tRow['answer'] ?? '') === 'benar' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">{{ ucfirst($tRow['answer'] ?? '') }}</strong>
+                                                            </span>
+                                                        @endforeach
+                                                    </div>
+                                                @elseif($q->type === 'multiple_select')
+                                                    @php $correctArr = is_array($q->sequence_data) ? $q->sequence_data : []; @endphp
+                                                    <div class="grid {{ $q->option_d ? 'grid-cols-2' : 'grid-cols-3' }} gap-x-4 text-[11px] text-slate-600 dark:text-zinc-400 pt-1">
+                                                        <span class="{{ in_array('a', $correctArr) ? 'text-amber-600 dark:text-amber-400 font-bold' : '' }}">A. {{ $q->option_a }}</span>
+                                                        <span class="{{ in_array('b', $correctArr) ? 'text-amber-600 dark:text-amber-400 font-bold' : '' }}">B. {{ $q->option_b }}</span>
+                                                        <span class="{{ in_array('c', $correctArr) ? 'text-amber-600 dark:text-amber-400 font-bold' : '' }}">C. {{ $q->option_c }}</span>
+                                                        @if($q->option_d)
+                                                            <span class="{{ in_array('d', $correctArr) ? 'text-amber-600 dark:text-amber-400 font-bold' : '' }}">D. {{ $q->option_d }}</span>
+                                                        @endif
+                                                    </div>
                                                 @else
-                                                    <div class="grid grid-cols-2 gap-x-4 text-[11px] text-slate-600 dark:text-zinc-400 pt-1">
+                                                    <div class="grid {{ $q->option_d ? 'grid-cols-2' : 'grid-cols-3' }} gap-x-4 text-[11px] text-slate-600 dark:text-zinc-400 pt-1">
                                                         <span class="{{ $q->correct_option === 'a' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : '' }}">A. {{ $q->option_a }}</span>
                                                         <span class="{{ $q->correct_option === 'b' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : '' }}">B. {{ $q->option_b }}</span>
                                                         <span class="{{ $q->correct_option === 'c' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : '' }}">C. {{ $q->option_c }}</span>
-                                                        <span class="{{ $q->correct_option === 'd' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : '' }}">D. {{ $q->option_d }}</span>
+                                                        @if($q->option_d)
+                                                            <span class="{{ $q->correct_option === 'd' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : '' }}">D. {{ $q->option_d }}</span>
+                                                        @endif
+                                                    </div>
+                                                @endif
+
+                                                @if($q->image)
+                                                    <div class="pt-1.5 flex items-center gap-2">
+                                                        <a href="{{ asset('storage/' . $q->image) }}" target="_blank" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 text-[11px] font-semibold text-blue-600 dark:text-blue-400 border border-slate-200 dark:border-zinc-700 hover:border-blue-400 transition">
+                                                            <span>🖼️</span> Lihat Gambar Soal
+                                                        </a>
                                                     </div>
                                                 @endif
 
@@ -234,10 +276,20 @@
                                 </div>
 
                                 <!-- TAB 2: SUDAH MENGERJAKAN -->
-                                <div x-show="activeTab === 'sudah'" class="space-y-2">
-                                    <div class="flex items-center justify-between text-xs pb-1">
-                                        <span class="font-semibold text-slate-700 dark:text-zinc-300">Siswa yang Telah Menyelesaikan Ujian Ini:</span>
-                                        <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">Total: {{ $exam->completed_students->count() }} siswa</span>
+                                <div x-show="activeTab === 'sudah'" class="space-y-3">
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-white dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs">
+                                        <div>
+                                            <span class="font-bold text-slate-800 dark:text-zinc-200">Siswa Telah Menyelesaikan Ujian:</span>
+                                            <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-black ml-1">{{ $exam->completed_students->count() }} Siswa</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <a href="{{ route('guru.exams.export-results', $exam->id) }}?format=xls" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition shadow-xs flex items-center gap-1.5" title="Download Format Excel (.xls)">
+                                                <span>📊</span> Export Excel (.xls)
+                                            </a>
+                                            <a href="{{ route('guru.exams.export-results', $exam->id) }}?format=csv" class="px-2.5 py-1.5 bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 text-xs font-semibold rounded-lg transition flex items-center gap-1" title="Download Format CSV">
+                                                <span>📄</span> CSV
+                                            </a>
+                                        </div>
                                     </div>
                                     <div class="space-y-2">
                                         @forelse($exam->completed_students as $att)
@@ -441,7 +493,7 @@
             <h3 class="text-lg font-bold text-slate-900 dark:text-white">Input Soal & Pembahasan</h3>
             <button onclick="document.getElementById('modal-question').classList.add('hidden')" class="text-slate-400 hover:text-slate-900 dark:hover:text-white">✕</button>
         </div>
-        <form action="{{ route('guru.questions.store') }}" method="POST" class="space-y-4">
+        <form action="{{ route('guru.questions.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
             @csrf
             <div class="space-y-1">
                 <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilih Paket Ujian Target</label>
@@ -487,6 +539,8 @@
                 <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Tipe Soal</label>
                 <select name="type" id="create_question_type" onchange="toggleQuestionTypeFields('create')" class="w-full bg-slate-50 dark:bg-zinc-900 border border-purple-500/40 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 dark:text-white">
                     <option value="multiple_choice">Pilihan Ganda (Standard A, B, C, D)</option>
+                    <option value="multiple_select">&#9745;&#65039; Pilihan Ganda Kompleks (Jawaban &gt; 1)</option>
+                    <option value="true_false_table">&#9989; Benar / Salah (Tabel Pernyataan)</option>
                     <option value="matching">🧩 Pasangan (Menjodohkan Kiri & Kanan)</option>
                     <option value="ordering">🔢 Susun Urutan (Urutan Langkah/Kronologis)</option>
                 </select>
@@ -497,8 +551,36 @@
                 <textarea name="question_text" rows="3" required placeholder="Ketik kalimat soal atau instruksi di sini..." class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white"></textarea>
             </div>
 
+            <!-- Upload Gambar Soal (Max 500 KB) -->
+            <div class="space-y-1.5 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                        <span>🖼️</span> Lampirkan Gambar Soal <span class="text-[10px] font-normal text-slate-400">(Opsional, Maks 500 KB)</span>
+                    </label>
+                    <span class="text-[10px] text-purple-600 dark:text-purple-400 font-semibold">JPG, PNG, WebP</span>
+                </div>
+                <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/jpg"
+                       class="block w-full text-xs text-slate-600 dark:text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-500 transition cursor-pointer">
+            </div>
+
             <!-- Fieldset: Pilihan Ganda -->
             <div id="create-field-mc" class="space-y-4">
+                <!-- Toggle Opsi: ABCD vs ABC (Segmented Switcher) -->
+                <div class="flex items-center justify-between p-2.5 bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/40 rounded-2xl">
+                    <span class="text-xs font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                        <span>🔘</span> Jumlah Opsi Jawaban:
+                    </span>
+                    <div class="inline-flex p-1 bg-white dark:bg-zinc-900 border border-purple-200 dark:border-purple-900/60 rounded-xl gap-1 shadow-xs">
+                        <button type="button" onclick="setOptionCount('create', 3)" id="create_btn_opt_3" class="px-3 py-1.5 text-xs rounded-lg transition text-slate-600 dark:text-zinc-400 hover:text-purple-600 font-medium">
+                            3 Opsi (A, B, C)
+                        </button>
+                        <button type="button" onclick="setOptionCount('create', 4)" id="create_btn_opt_4" class="px-3 py-1.5 text-xs rounded-lg transition bg-purple-600 text-white shadow-xs font-extrabold">
+                            4 Opsi (A, B, C, D)
+                        </button>
+                    </div>
+                    <input type="hidden" name="option_count" id="create_option_count_input" value="4">
+                </div>
+
                 <div class="grid grid-cols-2 gap-3">
                     <div class="space-y-1">
                         <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan A</label>
@@ -512,18 +594,18 @@
                         <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan C</label>
                         <input type="text" name="option_c" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
                     </div>
-                    <div class="space-y-1">
+                    <div class="space-y-1" id="create_option_d_container">
                         <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan D</label>
-                        <input type="text" name="option_d" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
+                        <input type="text" name="option_d" id="create_option_d_input" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
                     </div>
                 </div>
                 <div class="space-y-1">
                     <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Kunci Jawaban Benar</label>
-                    <select name="correct_option" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
+                    <select name="correct_option" id="create_correct_option_sel" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
                         <option value="a">A</option>
                         <option value="b">B</option>
                         <option value="c">C</option>
-                        <option value="d">D</option>
+                        <option value="d" id="create_correct_opt_d">D</option>
                     </select>
                 </div>
             </div>
@@ -548,6 +630,52 @@
                         <input type="text" name="sequence_data[{{ $i }}]" placeholder="Langkah {{ $i + 1 }}" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs">
                     </div>
                 @endfor
+            </div>
+
+            <!-- Fieldset: Benar/Salah (True-False Table) -->
+            <div id="create-field-tft" class="hidden space-y-3 bg-teal-50/50 dark:bg-teal-950/20 p-4 border border-teal-200 dark:border-teal-900/40 rounded-2xl">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-teal-200/60 dark:border-teal-900/40">
+                    <div>
+                        <span class="text-xs font-bold text-teal-800 dark:text-teal-300 flex items-center gap-1.5">
+                            <span>✅</span> Pernyataan Benar / Salah
+                        </span>
+                        <span class="text-[10px] text-teal-600 dark:text-teal-400">Pilih jumlah pernyataan:</span>
+                    </div>
+                    <div class="inline-flex p-1 bg-white dark:bg-zinc-900 border border-teal-200 dark:border-teal-900/60 rounded-xl gap-1 shrink-0">
+                        @foreach([2, 3, 4, 5, 6] as $cnt)
+                            <button type="button" onclick="setTftCount('create', {{ $cnt }})" id="create_btn_tft_{{ $cnt }}"
+                                    class="px-2.5 py-1 text-xs font-bold rounded-lg transition {{ $cnt === 3 ? 'bg-teal-600 text-white shadow-xs' : 'text-slate-600 dark:text-zinc-400 hover:text-teal-600' }}">
+                                {{ $cnt }}
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+
+                @for($i = 0; $i < 6; $i++)
+                    <div class="flex items-center gap-2 {{ $i >= 3 ? 'hidden' : '' }}" id="create_tft_row_{{ $i }}">
+                        <span class="w-5 h-5 rounded bg-teal-600 text-white text-[10px] font-extrabold flex items-center justify-center shrink-0">{{ chr(65+$i) }}</span>
+                        <input type="text" name="tft_data[{{ $i }}][statement]" placeholder="Pernyataan {{ chr(65+$i) }}" class="flex-1 bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs">
+                        <select name="tft_data[{{ $i }}][answer]" class="bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-2 py-2 text-xs font-bold">
+                            <option value="benar">✅ Benar</option>
+                            <option value="salah">❌ Salah</option>
+                        </select>
+                    </div>
+                @endfor
+            </div>
+
+            <!-- Fieldset: Pilihan Ganda Kompleks (Multiple Select) -->
+            <div id="create-field-ms" class="hidden space-y-4 bg-amber-50/50 dark:bg-amber-950/20 p-4 border border-amber-200 dark:border-amber-900/40 rounded-2xl">
+                <span class="text-xs font-bold text-amber-700 dark:text-amber-300 block">☑️ Pilihan Jawaban (centang semua yang benar):</span>
+                @foreach(['a'=>'A','b'=>'B','c'=>'C','d'=>'D'] as $opt => $label)
+                    <div class="flex items-center gap-3" id="create_ms_item_{{ $opt }}">
+                        <label class="flex items-center gap-1.5 cursor-pointer shrink-0">
+                            <input type="checkbox" name="correct_options[]" value="{{ $opt }}" class="w-4 h-4 rounded border-amber-400 text-amber-500 accent-amber-500">
+                            <span class="w-5 h-5 rounded bg-amber-500 text-white text-[10px] font-extrabold flex items-center justify-center">{{ $label }}</span>
+                        </label>
+                        <input type="text" name="option_{{ $opt }}" placeholder="Isi pilihan {{ $label }}" class="flex-1 bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs">
+                    </div>
+                @endforeach
+                <p class="text-[10px] text-amber-600 dark:text-amber-400 font-medium">💡 Centang kotak di samping huruf untuk menandai jawaban yang benar. Boleh lebih dari satu.</p>
             </div>
 
             <!-- Fieldset: Error Pattern per Jawaban Salah (hanya multiple_choice) -->
@@ -591,7 +719,7 @@
             </h3>
             <button onclick="document.getElementById('modal-edit-question').classList.add('hidden')" class="text-slate-400 hover:text-slate-900 dark:hover:text-white text-lg">✕</button>
         </div>
-        <form id="form-edit-question" action="" method="POST" class="space-y-4">
+        <form id="form-edit-question" action="" method="POST" enctype="multipart/form-data" class="space-y-4">
             @csrf
             @method('PUT')
             <div class="space-y-1">
@@ -638,6 +766,8 @@
                 <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Tipe Soal</label>
                 <select id="edit_type" name="type" onchange="toggleQuestionTypeFields('edit')" class="w-full bg-slate-50 dark:bg-zinc-900 border border-purple-500/40 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 dark:text-white">
                     <option value="multiple_choice">Pilihan Ganda (Standard A, B, C, D)</option>
+                    <option value="multiple_select">&#9745;&#65039; Pilihan Ganda Kompleks (Jawaban &gt; 1)</option>
+                    <option value="true_false_table">&#9989; Benar / Salah (Tabel Pernyataan)</option>
                     <option value="matching">🧩 Pasangan (Menjodohkan Kiri & Kanan)</option>
                     <option value="ordering">🔢 Susun Urutan (Urutan Langkah/Kronologis)</option>
                 </select>
@@ -648,8 +778,49 @@
                 <textarea id="edit_question_text" name="question_text" rows="3" required placeholder="Ketik kalimat soal di sini..." class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white"></textarea>
             </div>
 
+            <!-- Upload / Ganti Gambar Soal (Max 500 KB) -->
+            <div class="space-y-2 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                        <span>🖼️</span> Gambar Soal <span class="text-[10px] font-normal text-slate-400">(Opsional, Maks 500 KB)</span>
+                    </label>
+                    <span class="text-[10px] text-purple-600 dark:text-purple-400 font-semibold">JPG, PNG, WebP</span>
+                </div>
+                
+                <!-- Preview Gambar yang Sedang Ada -->
+                <div id="edit_image_preview_container" class="hidden items-center gap-3 p-2.5 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl">
+                    <img id="edit_image_preview" src="" alt="Preview Soal" class="w-16 h-16 object-contain rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50">
+                    <div class="flex-1 text-xs">
+                        <span class="font-semibold text-slate-800 dark:text-zinc-200 block">Gambar Terpasang</span>
+                        <label class="inline-flex items-center gap-1.5 text-rose-600 dark:text-rose-400 cursor-pointer mt-1">
+                            <input type="checkbox" name="remove_image" id="edit_remove_image" value="1" class="w-3.5 h-3.5 text-rose-600 rounded">
+                            <span class="text-[11px] font-bold">Hapus gambar ini</span>
+                        </label>
+                    </div>
+                </div>
+
+                <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/jpg"
+                       class="block w-full text-xs text-slate-600 dark:text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 transition cursor-pointer">
+            </div>
+
             <!-- Fieldset Edit: Multiple Choice -->
             <div id="edit-field-mc" class="space-y-4">
+                <!-- Toggle Opsi: ABCD vs ABC (Segmented Switcher) -->
+                <div class="flex items-center justify-between p-2.5 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 rounded-2xl">
+                    <span class="text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                        <span>🔘</span> Jumlah Opsi Jawaban:
+                    </span>
+                    <div class="inline-flex p-1 bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-900/60 rounded-xl gap-1 shadow-xs">
+                        <button type="button" onclick="setOptionCount('edit', 3)" id="edit_btn_opt_3" class="px-3 py-1.5 text-xs rounded-lg transition text-slate-600 dark:text-zinc-400 hover:text-blue-600 font-medium">
+                            3 Opsi (A, B, C)
+                        </button>
+                        <button type="button" onclick="setOptionCount('edit', 4)" id="edit_btn_opt_4" class="px-3 py-1.5 text-xs rounded-lg transition bg-blue-600 text-white shadow-xs font-extrabold">
+                            4 Opsi (A, B, C, D)
+                        </button>
+                    </div>
+                    <input type="hidden" name="option_count" id="edit_option_count_input" value="4">
+                </div>
+
                 <div class="grid grid-cols-2 gap-3">
                     <div class="space-y-1">
                         <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan A</label>
@@ -663,7 +834,7 @@
                         <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan C</label>
                         <input type="text" id="edit_option_c" name="option_c" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
                     </div>
-                    <div class="space-y-1">
+                    <div class="space-y-1" id="edit_option_d_container">
                         <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilihan D</label>
                         <input type="text" id="edit_option_d" name="option_d" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
                     </div>
@@ -674,7 +845,7 @@
                         <option value="a">A</option>
                         <option value="b">B</option>
                         <option value="c">C</option>
-                        <option value="d">D</option>
+                        <option value="d" id="edit_correct_opt_d">D</option>
                     </select>
                 </div>
             </div>
@@ -699,6 +870,52 @@
                         <input type="text" id="edit_seq_{{ $i }}" name="sequence_data[{{ $i }}]" placeholder="Langkah {{ $i + 1 }}" class="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs">
                     </div>
                 @endfor
+            </div>
+
+            <!-- Fieldset Edit: Benar/Salah (True-False Table) -->
+            <div id="edit-field-tft" class="hidden space-y-3 bg-teal-50/50 dark:bg-teal-950/20 p-4 border border-teal-200 dark:border-teal-900/40 rounded-2xl">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-teal-200/60 dark:border-teal-900/40">
+                    <div>
+                        <span class="text-xs font-bold text-teal-800 dark:text-teal-300 flex items-center gap-1.5">
+                            <span>✅</span> Pernyataan Benar / Salah
+                        </span>
+                        <span class="text-[10px] text-teal-600 dark:text-teal-400">Pilih jumlah pernyataan:</span>
+                    </div>
+                    <div class="inline-flex p-1 bg-white dark:bg-zinc-900 border border-teal-200 dark:border-teal-900/60 rounded-xl gap-1 shrink-0">
+                        @foreach([2, 3, 4, 5, 6] as $cnt)
+                            <button type="button" onclick="setTftCount('edit', {{ $cnt }})" id="edit_btn_tft_{{ $cnt }}"
+                                    class="px-2.5 py-1 text-xs font-bold rounded-lg transition {{ $cnt === 3 ? 'bg-teal-600 text-white shadow-xs' : 'text-slate-600 dark:text-zinc-400 hover:text-teal-600' }}">
+                                {{ $cnt }}
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+
+                @for($i = 0; $i < 6; $i++)
+                    <div class="flex items-center gap-2 {{ $i >= 3 ? 'hidden' : '' }}" id="edit_tft_row_{{ $i }}">
+                        <span class="w-5 h-5 rounded bg-teal-600 text-white text-[10px] font-extrabold flex items-center justify-center shrink-0">{{ chr(65+$i) }}</span>
+                        <input type="text" id="edit_tft_stmt_{{ $i }}" name="tft_data[{{ $i }}][statement]" placeholder="Pernyataan {{ chr(65+$i) }}" class="flex-1 bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs">
+                        <select id="edit_tft_ans_{{ $i }}" name="tft_data[{{ $i }}][answer]" class="bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-2 py-2 text-xs font-bold">
+                            <option value="benar">✅ Benar</option>
+                            <option value="salah">❌ Salah</option>
+                        </select>
+                    </div>
+                @endfor
+            </div>
+
+            <!-- Fieldset Edit: Pilihan Ganda Kompleks (Multiple Select) -->
+            <div id="edit-field-ms" class="hidden space-y-4 bg-amber-50/50 dark:bg-amber-950/20 p-4 border border-amber-200 dark:border-amber-900/40 rounded-2xl">
+                <span class="text-xs font-bold text-amber-700 dark:text-amber-300 block">☑️ Pilihan Jawaban (centang semua yang benar):</span>
+                @foreach(['a'=>'A','b'=>'B','c'=>'C','d'=>'D'] as $opt => $label)
+                    <div class="flex items-center gap-3" id="edit_ms_item_{{ $opt }}">
+                        <label class="flex items-center gap-1.5 cursor-pointer shrink-0">
+                            <input type="checkbox" id="edit_ms_correct_{{ $opt }}" name="correct_options[]" value="{{ $opt }}" class="w-4 h-4 rounded border-amber-400 text-amber-500 accent-amber-500">
+                            <span class="w-5 h-5 rounded bg-amber-500 text-white text-[10px] font-extrabold flex items-center justify-center">{{ $label }}</span>
+                        </label>
+                        <input type="text" id="edit_ms_opt_{{ $opt }}" name="option_{{ $opt }}" placeholder="Isi pilihan {{ $label }}" class="flex-1 bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs">
+                    </div>
+                @endforeach
+                <p class="text-[10px] text-amber-600 dark:text-amber-400 font-medium">💡 Centang kotak di samping huruf untuk menandai jawaban yang benar. Boleh lebih dari satu.</p>
             </div>
 
             <!-- Fieldset Edit: Error Pattern per Jawaban Salah -->
@@ -733,19 +950,98 @@
 </div>
 
 <script>
+function setOptionCount(prefix, count) {
+    count = parseInt(count) || 4;
+    const input = document.getElementById(prefix + '_option_count_input');
+    if (input) input.value = count;
+
+    const btn3 = document.getElementById(prefix + '_btn_opt_3');
+    const btn4 = document.getElementById(prefix + '_btn_opt_4');
+
+    const activeColor = prefix === 'create' ? 'bg-purple-600' : 'bg-blue-600';
+    const hoverColor = prefix === 'create' ? 'hover:text-purple-600' : 'hover:text-blue-600';
+
+    if (btn3 && btn4) {
+        if (count === 3) {
+            btn3.className = `px-3 py-1.5 text-xs rounded-lg transition ${activeColor} text-white shadow-xs font-extrabold`;
+            btn4.className = `px-3 py-1.5 text-xs rounded-lg transition text-slate-600 dark:text-zinc-400 ${hoverColor} font-medium`;
+        } else {
+            btn4.className = `px-3 py-1.5 text-xs rounded-lg transition ${activeColor} text-white shadow-xs font-extrabold`;
+            btn3.className = `px-3 py-1.5 text-xs rounded-lg transition text-slate-600 dark:text-zinc-400 ${hoverColor} font-medium`;
+        }
+    }
+
+    const optDContainer = document.getElementById(prefix + '_option_d_container');
+    const optDInput = document.getElementById(prefix === 'create' ? 'create_option_d_input' : 'edit_option_d');
+    const optDSelect = document.getElementById(prefix + '_correct_opt_d');
+    const correctSel = document.getElementById(prefix === 'create' ? 'create_correct_option_sel' : 'edit_correct_option');
+    const msItemD = document.getElementById(prefix + '_ms_item_d');
+    const wrongD = document.querySelector('.' + (prefix === 'create' ? 'create-wrong-opt' : 'edit-wrong-opt') + '[data-opt="d"]');
+
+    if (count === 3) {
+        if (optDContainer) optDContainer.classList.add('hidden');
+        if (optDInput) optDInput.value = '';
+        if (optDSelect) optDSelect.classList.add('hidden');
+        if (msItemD) msItemD.classList.add('hidden');
+        if (wrongD) wrongD.classList.add('hidden');
+
+        // If 'd' was selected as correct option, reset to 'a'
+        if (correctSel && correctSel.value === 'd') {
+            correctSel.value = 'a';
+            updateCorrectOptionHighlight(prefix);
+        }
+    } else {
+        if (optDContainer) optDContainer.classList.remove('hidden');
+        if (optDSelect) optDSelect.classList.remove('hidden');
+        if (msItemD) msItemD.classList.remove('hidden');
+        if (wrongD) wrongD.classList.remove('hidden');
+    }
+}
+
+function setTftCount(prefix, count) {
+    count = parseInt(count) || 3;
+    for (let c = 2; c <= 6; c++) {
+        const btn = document.getElementById(`${prefix}_btn_tft_${c}`);
+        if (btn) {
+            if (c === count) {
+                btn.className = 'px-2.5 py-1 text-xs font-extrabold rounded-lg transition bg-teal-600 text-white shadow-xs';
+            } else {
+                btn.className = 'px-2.5 py-1 text-xs font-bold rounded-lg transition text-slate-600 dark:text-zinc-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-zinc-800';
+            }
+        }
+    }
+
+    for (let i = 0; i < 6; i++) {
+        const row = document.getElementById(`${prefix}_tft_row_${i}`);
+        if (row) {
+            if (i < count) {
+                row.classList.remove('hidden');
+            } else {
+                row.classList.add('hidden');
+                const stmtInput = row.querySelector('input[type="text"]');
+                if (stmtInput) stmtInput.value = '';
+            }
+        }
+    }
+}
+
 function toggleQuestionTypeFields(prefix) {
     const typeSelect = document.getElementById(prefix === 'create' ? 'create_question_type' : 'edit_type');
     const type = typeSelect ? typeSelect.value : 'multiple_choice';
 
-    const mcContainer = document.getElementById(prefix + '-field-mc');
+    const mcContainer       = document.getElementById(prefix + '-field-mc');
     const matchingContainer = document.getElementById(prefix + '-field-matching');
     const orderingContainer = document.getElementById(prefix + '-field-ordering');
     const wrongAnswerContainer = document.getElementById(prefix + '-field-wrong-answer');
+    const tftContainer      = document.getElementById(prefix + '-field-tft');
+    const msContainer       = document.getElementById(prefix + '-field-ms');
 
-    if (mcContainer) mcContainer.classList.toggle('hidden', type !== 'multiple_choice');
-    if (matchingContainer) matchingContainer.classList.toggle('hidden', type !== 'matching');
-    if (orderingContainer) orderingContainer.classList.toggle('hidden', type !== 'ordering');
+    if (mcContainer)          mcContainer.classList.toggle('hidden', type !== 'multiple_choice');
+    if (matchingContainer)    matchingContainer.classList.toggle('hidden', type !== 'matching');
+    if (orderingContainer)    orderingContainer.classList.toggle('hidden', type !== 'ordering');
     if (wrongAnswerContainer) wrongAnswerContainer.classList.toggle('hidden', type !== 'multiple_choice');
+    if (tftContainer)         tftContainer.classList.toggle('hidden', type !== 'true_false_table');
+    if (msContainer)          msContainer.classList.toggle('hidden', type !== 'multiple_select');
 
     // When correct_option changes, update which wrong-answer rows are highlighted
     if (type === 'multiple_choice') {
@@ -790,6 +1086,10 @@ function openEditQuestionModal(question) {
     document.getElementById('edit_correct_option').value = question.correct_option || 'a';
     document.getElementById('edit_explanation').value = question.explanation || '';
 
+    // Check option count (4 vs 3)
+    const hasOptD = !!(question.option_d && question.option_d.trim() !== '');
+    setOptionCount('edit', hasOptD ? 4 : 3);
+
     // Metadata
     const editMateri = document.getElementById('edit_materi');
     if (editMateri) editMateri.value = question.materi || '';
@@ -800,20 +1100,41 @@ function openEditQuestionModal(question) {
     const editBobot = document.getElementById('edit_bobot');
     if (editBobot) editBobot.value = question.bobot || 1;
 
-    // Populate pair_data
+    // Populate pair_data (matching) or tft_data (true_false_table)
     const pairs = question.pair_data || [];
-    for (let i = 0; i < 4; i++) {
-        const leftInput = document.getElementById('edit_pair_left_' + i);
-        const rightInput = document.getElementById('edit_pair_right_' + i);
-        if (leftInput) leftInput.value = (pairs[i] && pairs[i].left) ? pairs[i].left : '';
-        if (rightInput) rightInput.value = (pairs[i] && pairs[i].right) ? pairs[i].right : '';
+    if (question.type === 'true_false_table') {
+        const tftCount = Math.max(2, Math.min(6, pairs.length || 3));
+        setTftCount('edit', tftCount);
+        for (let i = 0; i < 6; i++) {
+            const stmtInput = document.getElementById('edit_tft_stmt_' + i);
+            const ansSelect = document.getElementById('edit_tft_ans_' + i);
+            if (stmtInput) stmtInput.value = (pairs[i] && pairs[i].statement) ? pairs[i].statement : '';
+            if (ansSelect) ansSelect.value = (pairs[i] && pairs[i].answer) ? pairs[i].answer : 'benar';
+        }
+    } else {
+        for (let i = 0; i < 4; i++) {
+            const leftInput = document.getElementById('edit_pair_left_' + i);
+            const rightInput = document.getElementById('edit_pair_right_' + i);
+            if (leftInput) leftInput.value = (pairs[i] && pairs[i].left) ? pairs[i].left : '';
+            if (rightInput) rightInput.value = (pairs[i] && pairs[i].right) ? pairs[i].right : '';
+        }
     }
 
-    // Populate sequence_data
+    // Populate sequence_data (ordering) or correct_options (multiple_select)
     const seq = question.sequence_data || [];
-    for (let i = 0; i < 5; i++) {
-        const seqInput = document.getElementById('edit_seq_' + i);
-        if (seqInput) seqInput.value = seq[i] || '';
+    if (question.type === 'multiple_select') {
+        ['a','b','c','d'].forEach(opt => {
+            const cb = document.getElementById('edit_ms_correct_' + opt);
+            if (cb) cb.checked = seq.includes(opt);
+            const optInput = document.getElementById('edit_ms_opt_' + opt);
+            const optKey = 'option_' + opt;
+            if (optInput) optInput.value = question[optKey] || '';
+        });
+    } else {
+        for (let i = 0; i < 5; i++) {
+            const seqInput = document.getElementById('edit_seq_' + i);
+            if (seqInput) seqInput.value = seq[i] || '';
+        }
     }
 
     // Populate wrong_answer_data
@@ -826,6 +1147,26 @@ function openEditQuestionModal(question) {
         if (diagInput) diagInput.value = (wad[opt] && wad[opt].diagnosis) ? wad[opt].diagnosis : '';
         if (treatInput) treatInput.value = (wad[opt] && wad[opt].treatment) ? wad[opt].treatment : '';
     });
+
+    // Image Preview Handling
+    const imgContainer = document.getElementById('edit_image_preview_container');
+    const imgPreview = document.getElementById('edit_image_preview');
+    const removeImgCb = document.getElementById('edit_remove_image');
+    if (removeImgCb) removeImgCb.checked = false;
+
+    if (question.image) {
+        if (imgContainer) {
+            imgContainer.classList.remove('hidden');
+            imgContainer.classList.add('flex');
+        }
+        if (imgPreview) imgPreview.src = '/storage/' + question.image;
+    } else {
+        if (imgContainer) {
+            imgContainer.classList.add('hidden');
+            imgContainer.classList.remove('flex');
+        }
+        if (imgPreview) imgPreview.src = '';
+    }
 
     toggleQuestionTypeFields('edit');
     updateCorrectOptionHighlight('edit');
@@ -934,49 +1275,77 @@ function openEditQuestionModal(question) {
         </div>
 
         <div class="space-y-4 text-xs">
+            <div class="p-3 bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-2xl text-[11px] text-teal-800 dark:text-teal-300 space-y-1">
+                <span class="font-bold block">💡 Info & Ketentuan Sistem Terbaru:</span>
+                <p>• <strong>5 Tipe Soal:</strong> Pilihan Ganda (1 jawaban), Menjodohkan (Pasangan), Susun Urutan, Tabel Benar/Salah, dan Pilihan Ganda Kompleks (Jawaban > 1).</p>
+                <p>• <strong>Lampiran Gambar:</strong> Gambar pada soal dapat diunggah maksimal <strong>500 KB</strong> (Format: JPG, PNG, WebP) melalui tombol Input Soal / Edit Soal.</p>
+            </div>
+
             <div class="space-y-1.5">
                 <div class="flex items-center justify-between">
-                    <span class="font-bold text-slate-800 dark:text-zinc-200">Format 1: Kunci & Pembahasan Inline (Per Soal)</span>
+                    <span class="font-bold text-slate-800 dark:text-zinc-200">1. Pilihan Ganda Standar (1 Opsi Benar)</span>
                     <a href="{{ route('guru.exams.template') }}" class="text-purple-600 dark:text-purple-400 hover:underline text-[11px]">📥 Unduh File Template Word (.doc)</a>
                 </div>
-                <pre class="bg-slate-100 dark:bg-zinc-950 border border-slate-300 dark:border-zinc-800/80 p-4 rounded-2xl text-slate-800 dark:text-zinc-300 font-mono text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
+                <pre class="bg-slate-100 dark:bg-zinc-950 border border-slate-300 dark:border-zinc-800/80 p-3.5 rounded-2xl text-slate-800 dark:text-zinc-300 font-mono text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
 1. Hasil dari 15 + 25 x 2 adalah...
+Materi: Operasi Hitung Campuran
+Indikator: Siswa dapat menghitung perkalian dan penjumlahan
+Level: C3 | Bobot: 1
+Tipe: multiple_choice
 a. 80
 b. 65
 c. 55
 d. 70
 Kunci: B
-Pembahasan: Dahulukan perkalian 25 x 2 = 50. Lalu 15 + 50 = 65.
-
-2. Sebuah persegi memiliki panjang sisi 8 cm. Berapa luasnya?
-a. 32 cm²
-b. 64 cm²
-c. 16 cm²
-d. 48 cm²
-Kunci: B
-Pembahasan: Luas persegi = 8 x 8 = 64 cm².
-</pre>
+Pembahasan: Dahulukan perkalian 25 x 2 = 50. Lalu 15 + 50 = 65.</pre>
             </div>
 
             <div class="space-y-1.5">
-                <span class="font-bold text-slate-800 dark:text-zinc-200 block">Format 2: Daftar Kunci Terpisah di Akhir Dokumen</span>
-                <pre class="bg-slate-100 dark:bg-zinc-950 border border-slate-300 dark:border-zinc-800/80 p-4 rounded-2xl text-slate-800 dark:text-zinc-300 font-mono text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
-1. Soal nomor satu...
-a. Opsi A
-b. Opsi B
-c. Opsi C
-d. Opsi D
+                <span class="font-bold text-slate-800 dark:text-zinc-200 block">2. Menjodohkan / Pasangan (Matching)</span>
+                <pre class="bg-slate-100 dark:bg-zinc-950 border border-slate-300 dark:border-zinc-800/80 p-3.5 rounded-2xl text-slate-800 dark:text-zinc-300 font-mono text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
+2. Pasangkan bangun datar berikut dengan rumus luasnya:
+Tipe: matching
+Persegi => s x s
+Persegi Panjang => p x l
+Segitiga => 1/2 x a x t
+Lingkaran => π x r²
+Pembahasan: Sesuai rumus baku geometri bangun datar.</pre>
+            </div>
 
-2. Soal nomor dua...
-a. Opsi A
-b. Opsi B
-c. Opsi C
-d. Opsi D
+            <div class="space-y-1.5">
+                <span class="font-bold text-slate-800 dark:text-zinc-200 block">3. Susun Urutan Kronologis (Ordering)</span>
+                <pre class="bg-slate-100 dark:bg-zinc-950 border border-slate-300 dark:border-zinc-800/80 p-3.5 rounded-2xl text-slate-800 dark:text-zinc-300 font-mono text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
+3. Urutkan tahapan metamorfosis kupu-kupu dari awal:
+Tipe: ordering
+1. Telur
+2. Ulat (Larva)
+3. Kepompong (Pupa)
+4. Kupu-kupu Dewasa (Imago)
+Pembahasan: Daur hidup dimulai dari telur hingga kupu-kupu dewasa.</pre>
+            </div>
 
-KUNCI JAWABAN:
-1. B
-2. C
-</pre>
+            <div class="space-y-1.5">
+                <span class="font-bold text-slate-800 dark:text-zinc-200 block">4. Tabel Pernyataan Benar / Salah (True/False Table)</span>
+                <pre class="bg-slate-100 dark:bg-zinc-950 border border-slate-300 dark:border-zinc-800/80 p-3.5 rounded-2xl text-slate-800 dark:text-zinc-300 font-mono text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
+4. Tentukan Benar atau Salah untuk setiap pernyataan berikut:
+Tipe: true_false_table
+A. 15 adalah bilangan prima. => Salah
+B. 17 adalah bilangan prima. => Benar
+C. 2 adalah satu-satunya bilangan prima genap. => Benar
+Pembahasan: 15 memiliki faktor 1, 3, 5, 15 sehingga bukan prima.</pre>
+            </div>
+
+            <div class="space-y-1.5">
+                <span class="font-bold text-slate-800 dark:text-zinc-200 block">5. Pilihan Ganda Kompleks (Jawaban Benar Lebih Dari Satu)</span>
+                <pre class="bg-slate-100 dark:bg-zinc-950 border border-slate-300 dark:border-zinc-800/80 p-3.5 rounded-2xl text-slate-800 dark:text-zinc-300 font-mono text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
+5. Manakah bilangan yang merupakan kelipatan dari 6? (Pilih semua yang benar)
+Tipe: multiple_select
+a. 12
+b. 15
+c. 24
+d. 30
+Kunci: A, C, D
+Pembahasan: 12, 24, dan 30 habis dibagi 6 (kelipatan 6).</pre>
             </div>
         </div>
 

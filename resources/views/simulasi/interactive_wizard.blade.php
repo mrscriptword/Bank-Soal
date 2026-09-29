@@ -260,14 +260,14 @@
                                     @click="jumpToQuestion(idx)"
                                     :class="{
                                         'bg-gradient-to-tr from-fuchsia-600 to-indigo-600 text-white font-extrabold ring-2 ring-fuchsia-400 ring-offset-2 dark:ring-offset-zinc-900 shadow-lg shadow-fuchsia-500/30 scale-105 z-10': currentQuestionIndex === idx,
-                                        'bg-purple-100 dark:bg-purple-950/90 text-purple-700 dark:text-purple-300 font-bold border-purple-300 dark:border-purple-800': currentQuestionIndex !== idx && userAnswers[q.id],
-                                        'bg-white dark:bg-[#202024] text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700 font-semibold border-slate-200 dark:border-zinc-800': currentQuestionIndex !== idx && !userAnswers[q.id]
+                                        'bg-purple-100 dark:bg-purple-950/90 text-purple-700 dark:text-purple-300 font-bold border-purple-300 dark:border-purple-800': currentQuestionIndex !== idx && isQuestionAnswered(q.id),
+                                        'bg-white dark:bg-[#202024] text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700 font-semibold border-slate-200 dark:border-zinc-800': currentQuestionIndex !== idx && !isQuestionAnswered(q.id)
                                     }"
                                     class="aspect-square flex flex-col items-center justify-center rounded-xl text-xs sm:text-sm border transition-all duration-150 relative group">
                                 <span x-text="idx + 1"></span>
                                 
                                 <!-- Mini answered badge dot -->
-                                <template x-if="userAnswers[q.id]">
+                                <template x-if="isQuestionAnswered(q.id)">
                                     <span :class="currentQuestionIndex === idx ? 'bg-white' : 'bg-purple-500'" class="w-1.5 h-1.5 rounded-full absolute bottom-1"></span>
                                 </template>
                             </button>
@@ -313,10 +313,19 @@
                                  :style="`width: ${((currentQuestionIndex + 1) / questions.length) * 100}%`"></div>
                         </div>
 
-                        <!-- Question Text -->
-                        <div class="pt-2 flex items-center justify-between gap-3">
+                        <!-- Question Text & Image -->
+                        <div class="pt-2 space-y-3">
                             <p class="text-base sm:text-lg font-bold text-slate-900 dark:text-zinc-100 leading-relaxed"
                                x-text="currentQuestion ? currentQuestion.question_text : ''"></p>
+                            
+                            <!-- Question Image -->
+                            <template x-if="currentQuestion && (currentQuestion.image_url || currentQuestion.image)">
+                                <div class="p-2 bg-white dark:bg-zinc-950/80 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden max-w-xl">
+                                    <img :src="currentQuestion.image_url || ('/storage/' + currentQuestion.image)" 
+                                         alt="Gambar Soal" 
+                                         class="w-full max-h-[350px] object-contain rounded-xl mx-auto shadow-sm">
+                                </div>
+                            </template>
                         </div>
                     </div>
 
@@ -372,19 +381,21 @@
                                 </label>
 
                                 <!-- Option D -->
-                                <label @click="selectOption('d')"
-                                       :class="userAnswers[currentQuestion?.id] === 'd' 
-                                           ? 'bg-purple-50/80 dark:bg-[#1f1430] border-purple-500 ring-1 ring-purple-500 text-slate-900 dark:text-white shadow-md' 
-                                           : 'bg-white dark:bg-[#161618] border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-purple-300 dark:hover:border-zinc-700'"
-                                       class="flex items-center gap-4 p-4 rounded-2xl border transition cursor-pointer group">
-                                    <div :class="userAnswers[currentQuestion?.id] === 'd' 
-                                            ? 'bg-gradient-to-tr from-fuchsia-600 to-indigo-600 text-white shadow-md shadow-fuchsia-500/30' 
-                                            : 'bg-slate-100 dark:bg-[#222226] text-purple-700 dark:text-purple-400 group-hover:bg-purple-100 dark:group-hover:bg-purple-950/60'"
-                                         class="w-9 h-9 rounded-full font-extrabold text-sm flex items-center justify-center shrink-0 transition">
-                                        D
-                                    </div>
-                                    <span class="font-semibold text-sm sm:text-base leading-snug" x-text="currentQuestion?.option_d"></span>
-                                </label>
+                                <template x-if="currentQuestion?.option_d">
+                                    <label @click="selectOption('d')"
+                                           :class="userAnswers[currentQuestion?.id] === 'd' 
+                                               ? 'bg-purple-50/80 dark:bg-[#1f1430] border-purple-500 ring-1 ring-purple-500 text-slate-900 dark:text-white shadow-md' 
+                                               : 'bg-white dark:bg-[#161618] border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-purple-300 dark:hover:border-zinc-700'"
+                                           class="flex items-center gap-4 p-4 rounded-2xl border transition cursor-pointer group">
+                                        <div :class="userAnswers[currentQuestion?.id] === 'd' 
+                                                ? 'bg-gradient-to-tr from-fuchsia-600 to-indigo-600 text-white shadow-md shadow-fuchsia-500/30' 
+                                                : 'bg-slate-100 dark:bg-[#222226] text-purple-700 dark:text-purple-400 group-hover:bg-purple-100 dark:group-hover:bg-purple-950/60'"
+                                             class="w-9 h-9 rounded-full font-extrabold text-sm flex items-center justify-center shrink-0 transition">
+                                            D
+                                        </div>
+                                        <span class="font-semibold text-sm sm:text-base leading-snug" x-text="currentQuestion?.option_d"></span>
+                                    </label>
+                                </template>
                             </div>
                         </template>
 
@@ -455,6 +466,81 @@
                                         </div>
                                     </template>
                                 </div>
+                            </div>
+                        </template>
+
+                        <!-- 4. BENAR / SALAH (TRUE-FALSE TABLE) QUESTION TYPE -->
+                        <template x-if="currentQuestion?.type === 'true_false_table'">
+                            <div class="space-y-4 bg-slate-50 dark:bg-[#161618] border border-slate-200 dark:border-zinc-800/90 rounded-2xl p-4 sm:p-5">
+                                <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-zinc-800">
+                                    <span class="text-xs font-bold text-slate-600 dark:text-zinc-400 flex items-center gap-1.5">
+                                        <span>&#9989;</span> Tentukan Benar atau Salah setiap pernyataan:
+                                    </span>
+                                    <span class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-800"
+                                          x-text="`${getTftAnsweredCount(currentQuestion.id)}/${(currentQuestion.shuffled_statements || currentQuestion.pair_data || []).length} Dijawab`"></span>
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm">
+                                        <thead>
+                                            <tr class="border-b border-slate-200 dark:border-zinc-700">
+                                                <th class="text-left py-2 px-3 text-xs font-bold text-slate-500 dark:text-zinc-400 w-8">#</th>
+                                                <th class="text-left py-2 px-3 text-xs font-bold text-slate-500 dark:text-zinc-400">Pernyataan</th>
+                                                <th class="py-2 px-3 text-xs font-bold text-emerald-600 dark:text-emerald-400 text-center whitespace-nowrap">Benar</th>
+                                                <th class="py-2 px-3 text-xs font-bold text-rose-600 dark:text-rose-400 text-center whitespace-nowrap">Salah</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="(row, rIdx) in (currentQuestion?.shuffled_statements || currentQuestion?.pair_data || [])" :key="rIdx">
+                                                <tr class="border-b border-slate-100 dark:border-zinc-800/60 transition"
+                                                    :class="getTftAnswer(currentQuestion.id, row.statement) ? 'bg-teal-50/50 dark:bg-teal-950/20' : ''">
+                                                    <td class="py-3 px-3">
+                                                        <span class="w-6 h-6 rounded-full bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-400 text-xs font-extrabold flex items-center justify-center" x-text="String.fromCharCode(65 + rIdx)"></span>
+                                                    </td>
+                                                    <td class="py-3 px-3 font-medium text-slate-800 dark:text-zinc-200 text-sm leading-relaxed" x-text="row.statement"></td>
+                                                    <td class="py-3 px-3 text-center">
+                                                        <input type="radio" :name="`tft_${currentQuestion.id}_${rIdx}`" value="benar"
+                                                               :checked="getTftAnswer(currentQuestion.id, row.statement) === 'benar'"
+                                                               @change="setTftAnswer(currentQuestion.id, row.statement, 'benar')"
+                                                               class="w-4 h-4 accent-emerald-500 cursor-pointer">
+                                                    </td>
+                                                    <td class="py-3 px-3 text-center">
+                                                        <input type="radio" :name="`tft_${currentQuestion.id}_${rIdx}`" value="salah"
+                                                               :checked="getTftAnswer(currentQuestion.id, row.statement) === 'salah'"
+                                                               @change="setTftAnswer(currentQuestion.id, row.statement, 'salah')"
+                                                               class="w-4 h-4 accent-rose-500 cursor-pointer">
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- 5. PILIHAN GANDA KOMPLEKS (MULTIPLE SELECT) QUESTION TYPE -->
+                        <template x-if="currentQuestion?.type === 'multiple_select'">
+                            <div class="space-y-3">
+                                <p class="text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl px-3 py-2 flex items-center gap-1.5">
+                                    <span>&#9888;&#65039;</span> Pilih semua jawaban yang benar! Jawaban benar bisa lebih dari satu.
+                                </p>
+                                <template x-for="opt in (currentQuestion?.option_d ? ['a','b','c','d'] : ['a','b','c'])" :key="opt">
+                                    <label @click="toggleMultiSelect(currentQuestion.id, opt)"
+                                           :class="isMultiSelected(currentQuestion.id, opt)
+                                               ? 'bg-amber-50/80 dark:bg-[#1f1a10] border-amber-500 ring-1 ring-amber-500 shadow-md'
+                                               : 'bg-white dark:bg-[#161618] border-slate-200 dark:border-zinc-800 hover:border-amber-300 dark:hover:border-zinc-700'"
+                                           class="flex items-center gap-4 p-4 rounded-2xl border transition cursor-pointer group">
+                                        <div :class="isMultiSelected(currentQuestion.id, opt)
+                                                ? 'bg-gradient-to-tr from-amber-500 to-yellow-500 text-white shadow-md shadow-amber-500/30'
+                                                : 'bg-slate-100 dark:bg-[#222226] text-amber-700 dark:text-amber-400 group-hover:bg-amber-100'"
+                                             class="w-9 h-9 rounded-lg font-extrabold text-sm flex items-center justify-center shrink-0 transition border-2"
+                                             :class="isMultiSelected(currentQuestion.id, opt) ? 'border-amber-400' : 'border-transparent'">
+                                            <span x-show="isMultiSelected(currentQuestion.id, opt)">&#10003;</span>
+                                            <span x-show="!isMultiSelected(currentQuestion.id, opt)" x-text="opt.toUpperCase()"></span>
+                                        </div>
+                                        <span class="font-semibold text-sm sm:text-base leading-snug text-slate-800 dark:text-zinc-100"
+                                              x-text="currentQuestion['option_' + opt]"></span>
+                                    </label>
+                                </template>
                             </div>
                         </template>
 
@@ -628,6 +714,13 @@
 
                         <p class="text-sm font-medium text-slate-900 dark:text-white" x-text="item.question_text"></p>
 
+                        <!-- Review Item Image -->
+                        <template x-if="item.image">
+                            <div class="p-2 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl max-w-sm">
+                                <img :src="item.image" alt="Gambar Soal" class="w-full max-h-48 object-contain rounded-lg">
+                            </div>
+                        </template>
+
                         <!-- Review Item Details -->
                         <div class="space-y-1.5 text-xs">
                             <!-- MULTIPLE CHOICE REVIEW -->
@@ -688,6 +781,60 @@
                                                 </div>
                                             </template>
                                         </div>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- TRUE/FALSE TABLE REVIEW -->
+                            <template x-if="item.type === 'true_false_table'">
+                                <div class="space-y-2 pt-1">
+                                    <span class="font-bold text-slate-700 dark:text-zinc-300 block">Review Pernyataan Benar / Salah:</span>
+                                    <div class="space-y-1.5">
+                                        <template x-for="(row, rIdx) in (item.pair_data || [])" :key="rIdx">
+                                            <div class="p-2.5 rounded-xl bg-white dark:bg-[#202024] border border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="w-5 h-5 rounded bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 text-[10px] font-black flex items-center justify-center shrink-0" x-text="String.fromCharCode(65 + rIdx)"></span>
+                                                    <span class="font-medium text-slate-800 dark:text-zinc-200" x-text="row.statement"></span>
+                                                </div>
+                                                <div class="flex items-center gap-2 shrink-0 text-[11px]">
+                                                    <span class="text-slate-500 dark:text-zinc-400">Jawabanmu:</span>
+                                                    <span :class="(item.answer_payload && item.answer_payload[row.statement] === row.answer) ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-rose-600 dark:text-rose-400 font-semibold'"
+                                                          x-text="item.answer_payload && item.answer_payload[row.statement] ? (item.answer_payload[row.statement] === 'benar' ? 'Benar' : 'Salah') : 'Belum Dijawab'"></span>
+                                                    <span x-show="item.answer_payload && item.answer_payload[row.statement] !== row.answer" class="text-slate-400">
+                                                        (Kunci: <span class="font-bold text-emerald-600 dark:text-emerald-400" x-text="row.answer === 'benar' ? 'Benar' : 'Salah'"></span>)
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- MULTIPLE SELECT REVIEW -->
+                            <template x-if="item.type === 'multiple_select'">
+                                <div class="space-y-2 pt-1">
+                                    <span class="font-bold text-slate-700 dark:text-zinc-300 block">Review Pilihan Ganda Kompleks:</span>
+                                    <div class="space-y-1.5">
+                                        <template x-for="opt in ['a','b','c','d']" :key="opt">
+                                            <div class="p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs"
+                                                 :class="(item.sequence_data || []).includes(opt) ? 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800/60' : 'bg-white dark:bg-[#202024] border-slate-200 dark:border-zinc-800'">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="w-5 h-5 rounded font-extrabold text-[10px] flex items-center justify-center shrink-0"
+                                                          :class="(item.sequence_data || []).includes(opt) ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300'"
+                                                          x-text="opt.toUpperCase()"></span>
+                                                    <span class="font-medium text-slate-800 dark:text-zinc-200" x-text="item.options[opt]"></span>
+                                                </div>
+                                                <div class="flex items-center gap-1.5 shrink-0 text-[11px]">
+                                                    <span x-show="(item.answer_payload || []).includes(opt)" class="px-2 py-0.5 rounded-md font-semibold"
+                                                          :class="(item.sequence_data || []).includes(opt) ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'">
+                                                        Dipilih Kamu
+                                                    </span>
+                                                    <span x-show="(item.sequence_data || []).includes(opt)" class="px-2 py-0.5 rounded-md font-bold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
+                                                        Kunci Benar
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </template>
                                     </div>
                                 </div>
                             </template>
@@ -763,8 +910,17 @@
                 }
             },
 
+            isQuestionAnswered(questionId) {
+                const ans = this.userAnswers[questionId];
+                if (ans === undefined || ans === null) return false;
+                if (typeof ans === 'string') return ans.trim().length > 0;
+                if (Array.isArray(ans)) return ans.length > 0;
+                if (typeof ans === 'object') return Object.keys(ans).some(k => !!ans[k]);
+                return false;
+            },
+
             getAnsweredCount() {
-                return Object.keys(this.userAnswers).filter(k => !!this.userAnswers[k]).length;
+                return (this.questions || []).filter(q => this.isQuestionAnswered(q.id)).length;
             },
 
             prevQuestion() {
@@ -961,6 +1117,43 @@
                     items[targetIdx] = temp;
                     this.userAnswers[questionId] = items;
                 }
+            },
+
+            // ---- TRUE/FALSE TABLE helpers ----
+            getTftAnswer(questionId, statement) {
+                const ans = this.userAnswers[questionId];
+                if (!ans || typeof ans !== 'object' || Array.isArray(ans)) return null;
+                return ans[statement] || null;
+            },
+
+            setTftAnswer(questionId, statement, value) {
+                if (!this.userAnswers[questionId] || typeof this.userAnswers[questionId] !== 'object' || Array.isArray(this.userAnswers[questionId])) {
+                    this.userAnswers[questionId] = {};
+                }
+                this.userAnswers[questionId] = { ...this.userAnswers[questionId], [statement]: value };
+            },
+
+            getTftAnsweredCount(questionId) {
+                const ans = this.userAnswers[questionId];
+                if (!ans || typeof ans !== 'object' || Array.isArray(ans)) return 0;
+                return Object.keys(ans).filter(k => !!ans[k]).length;
+            },
+
+            // ---- MULTIPLE SELECT helpers ----
+            toggleMultiSelect(questionId, opt) {
+                if (!this.userAnswers[questionId] || !Array.isArray(this.userAnswers[questionId])) {
+                    this.userAnswers[questionId] = [];
+                }
+                const idx = this.userAnswers[questionId].indexOf(opt);
+                if (idx === -1) {
+                    this.userAnswers[questionId] = [...this.userAnswers[questionId], opt];
+                } else {
+                    this.userAnswers[questionId] = this.userAnswers[questionId].filter(o => o !== opt);
+                }
+            },
+
+            isMultiSelected(questionId, opt) {
+                return Array.isArray(this.userAnswers[questionId]) && this.userAnswers[questionId].includes(opt);
             },
 
             nextQuestionOrSubmit() {

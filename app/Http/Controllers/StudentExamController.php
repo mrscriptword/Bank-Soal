@@ -71,11 +71,17 @@ class StudentExamController extends Controller
     {
         $exam->load(['subject', 'questions' => function ($q) {
             // Exclude correct_option and explanation during active test
-            $q->select('id', 'exam_id', 'type', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'pair_data', 'sequence_data');
+            $q->select('id', 'exam_id', 'type', 'question_text', 'image', 'option_a', 'option_b', 'option_c', 'option_d', 'pair_data', 'sequence_data');
         }]);
 
         // Prepare randomized items for student UI
         $exam->questions->transform(function ($question) {
+            if ($question->image) {
+                $question->image_url = asset('storage/' . $question->image);
+            } else {
+                $question->image_url = null;
+            }
+
             if ($question->type === 'matching' && is_array($question->pair_data)) {
                 $leftItems = [];
                 $rightItems = [];
@@ -91,7 +97,13 @@ class StudentExamController extends Controller
                 $shuffledSeq = $question->sequence_data;
                 shuffle($shuffledSeq);
                 $question->shuffled_sequence = $shuffledSeq;
+            } elseif ($question->type === 'true_false_table' && is_array($question->pair_data)) {
+                // Shuffle statement rows so order differs each attempt
+                $statements = $question->pair_data;
+                shuffle($statements);
+                $question->shuffled_statements = $statements;
             }
+            // multiple_select: options are already in option_a/b/c/d, no extra prep needed
             return $question;
         });
 
@@ -160,6 +172,38 @@ class StudentExamController extends Controller
                     $isCorrect = ($matchingCorrect === $totalPairs);
                 }
 
+            } elseif ($question->type === 'true_false_table') {
+                // true_false_table: rawAnswer = {"statement text": "benar"|"salah", ...}
+                $answerPayload = is_array($rawAnswer) ? $rawAnswer : json_decode($rawAnswer, true);
+                if (!is_array($answerPayload)) {
+                    $answerPayload = [];
+                }
+
+                $correctRows = $question->pair_data ?: [];
+                $allMatch = count($correctRows) > 0;
+                foreach ($correctRows as $row) {
+                    $stmt = $row['statement'] ?? '';
+                    $expectedAns = strtolower($row['answer'] ?? 'benar');
+                    $studentAns  = strtolower($answerPayload[$stmt] ?? '');
+                    if ($studentAns !== $expectedAns) {
+                        $allMatch = false;
+                        break;
+                    }
+                }
+                $isCorrect = $allMatch;
+
+            } elseif ($question->type === 'multiple_select') {
+                // multiple_select: rawAnswer = ["a", "c"] (array of chosen letters)
+                $answerPayload = is_array($rawAnswer) ? $rawAnswer : json_decode($rawAnswer, true);
+                if (!is_array($answerPayload)) {
+                    $answerPayload = [];
+                }
+                $studentSelected = array_map('strtolower', $answerPayload);
+                sort($studentSelected);
+                $correctSelected = is_array($question->sequence_data) ? $question->sequence_data : [];
+                sort($correctSelected);
+                $isCorrect = ($studentSelected === $correctSelected);
+
             } elseif ($question->type === 'ordering') {
                 // Sequence ordering: expected rawAnswer format: ["Step 1", "Step 2", ...]
                 $answerPayload = is_array($rawAnswer) ? $rawAnswer : json_decode($rawAnswer, true);
@@ -216,6 +260,7 @@ class StudentExamController extends Controller
                 'cognitive_level'   => $question->cognitive_level,
                 'bobot'             => $question->bobot ?? 1,
                 'question_text'     => $question->question_text,
+                'image'             => $question->image ? asset('storage/' . $question->image) : null,
                 'options'           => $optionMap,
                 'selected_option'   => $selectedOptionStr,
                 'correct_option'    => strtolower($question->correct_option ?? ''),
