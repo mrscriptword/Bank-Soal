@@ -8,6 +8,7 @@ use App\Models\Question;
 use App\Models\Subject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 
 class GuruController extends Controller
@@ -16,19 +17,36 @@ class GuruController extends Controller
     {
         $guru = Auth::user();
 
-        $subjects = Subject::withCount(['exams'])->get();
+        // Ambil data subjects beserta jumlah exams langsung dari query (menghindari error unserialize Eloquent Collection)
+        $subjects = Subject::select('id', 'title', 'code', 'icon')
+            ->withCount(['exams'])
+            ->get();
 
-        $students = \App\Models\User::where('role', 'murid')->get();
+        // ✅ Batasi kolom: hanya kolom yang dipakai untuk filter grade & tampil di view
+        $students = \App\Models\User::where('role', 'murid')
+            ->select('id', 'name', 'grade_level')
+            ->get();
 
-        $exams = Exam::with(['subject', 'questions', 'attempts.user'])
+        // ✅ Eager loading spesifik: batasi kolom di setiap relasi
+        // - subject: hanya id, title, code
+        // - questions: hanya id & exam_id (untuk count)
+        // - attempts: hanya kolom yang dibutuhkan + user (id, name, grade_level)
+        $exams = Exam::with([
+                'subject:id,title,code',
+                'questions:id,exam_id',
+                'attempts' => fn ($q) => $q
+                    ->select('id', 'exam_id', 'user_id', 'score', 'correct_answers', 'total_questions', 'time_taken_seconds', 'status', 'completed_at', 'created_at')
+                    ->with('user:id,name,grade_level'),
+            ])
+            ->select('id', 'subject_id', 'title', 'duration_minutes', 'passing_score', 'grade_level', 'status', 'allow_repeat', 'created_at')
             ->withCount(['attempts'])
             ->get()
             ->map(function ($exam) use ($students) {
-                // Get latest attempt per user for this exam
+                // Ambil 1 attempt terbaru per user (tanpa duplikasi)
                 $attemptsByUser = $exam->attempts->sortByDesc('created_at')->unique('user_id');
                 $completedUserIds = $attemptsByUser->pluck('user_id')->toArray();
 
-                // Target students matching exam grade level
+                // Filter murid sesuai grade_level ujian
                 $targetStudents = $students->filter(function ($student) use ($exam) {
                     if (!$exam->grade_level || $exam->grade_level === 'ALL') {
                         return true;
@@ -44,14 +62,21 @@ class GuruController extends Controller
                 return $exam;
             });
 
-        $attempts = ExamAttempt::with(['user', 'exam.subject'])
+        // ✅ Eager load dengan kolom spesifik, batasi 15 record terakhir
+        $attempts = ExamAttempt::with([
+                'user:id,name',
+                'exam:id,title,subject_id',
+                'exam.subject:id,title,code',
+            ])
+            ->select('id', 'user_id', 'exam_id', 'score', 'correct_answers', 'total_questions', 'status', 'completed_at', 'created_at')
             ->latest()
             ->take(15)
             ->get();
 
-        $totalQuestions = Question::count();
-        $totalAttempts = ExamAttempt::count();
-        $averageScore = round(ExamAttempt::avg('score') ?? 0, 1);
+        // ✅ Cache statistik agregat 2 menit (data ini berubah saat siswa submit)
+        $totalQuestions = Cache::driver('file')->remember('total_questions_count', 120, fn () => Question::count());
+        $totalAttempts  = Cache::driver('file')->remember('total_attempts_count', 120, fn () => ExamAttempt::count());
+        $averageScore   = Cache::driver('file')->remember('average_score', 120, fn () => round(ExamAttempt::avg('score') ?? 0, 1));
 
         return view('guru.dashboard', compact(
             'subjects', 'exams', 'attempts', 'students',
@@ -70,15 +95,19 @@ class GuruController extends Controller
         ]);
 
         $exam = Exam::create([
-            'subject_id' => $request->subject_id,
-            'title' => $request->title,
+            'subject_id'       => $request->subject_id,
+            'title'            => $request->title,
             'duration_minutes' => $request->duration_minutes,
-            'passing_score' => $request->passing_score,
-            'grade_level' => $request->grade_level,
-            'allow_repeat' => $request->boolean('allow_repeat'),
-            'created_by' => Auth::id() ?? 1,
-            'status' => 'active',
+            'passing_score'    => $request->passing_score,
+            'grade_level'      => $request->grade_level,
+            'allow_repeat'     => $request->boolean('allow_repeat'),
+            'created_by'       => Auth::id() ?? 1,
+            'status'           => 'active',
         ]);
+
+        // ✅ Invalidasi cache yang berkaitan dengan exam baru
+        Cache::driver('file')->forget('subjects_with_exam_count');
+        Cache::driver('file')->forget('admin_exams_list');
 
         return redirect()->route('guru.dashboard')->with('success', 'Paket Ujian berhasil ditambahkan!');
     }
@@ -176,6 +205,9 @@ class GuruController extends Controller
         // Update total questions count on Exam
         $exam = Exam::find($request->exam_id);
         $exam->update(['total_questions' => $exam->questions()->count()]);
+
+        // ✅ Invalidasi cache statistik soal
+        Cache::driver('file')->forget('total_questions_count');
 
         return redirect()->route('guru.dashboard')->with('success', 'Soal & Pembahasan berhasil ditambahkan!');
     }
@@ -381,6 +413,8 @@ class GuruController extends Controller
                 'wrong_answer_data' => $q['wrong_answer_data'] ?? null,
             ]);
         }
+
+        Cache::driver('file')->forget('total_questions_count');
 
         return redirect()->route('guru.dashboard')->with('success', 'Paket Ujian berhasil dibuat dari file PDF! (' . count($questionsData) . ' soal terimpor)');
     }

@@ -69,7 +69,7 @@
                     <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
                     Daftar Akun Terdaftar dalam Sistem
                 </span>
-                <span class="text-xs font-normal text-slate-500 dark:text-zinc-400">Total: {{ $users->count() }} User</span>
+                <span class="text-xs font-normal text-slate-500 dark:text-zinc-400">Total: {{ $users->total() }} User</span>
             </h2>
 
             <div class="overflow-x-auto">
@@ -116,6 +116,28 @@
                     </tbody>
                 </table>
             </div>
+
+            {{-- Pagination (tampil hanya jika total > 50) --}}
+            @if($users->hasPages())
+                <div class="mt-4 flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400">
+                    <span>Menampilkan {{ $users->firstItem() }}–{{ $users->lastItem() }} dari {{ $users->total() }} user</span>
+                    <div class="flex items-center gap-1">
+                        @if($users->onFirstPage())
+                            <span class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-600 cursor-not-allowed">‹ Prev</span>
+                        @else
+                            <a href="{{ $users->previousPageUrl() }}" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition font-semibold">‹ Prev</a>
+                        @endif
+
+                        <span class="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-bold">{{ $users->currentPage() }}</span>
+
+                        @if($users->hasMorePages())
+                            <a href="{{ $users->nextPageUrl() }}" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition font-semibold">Next ›</a>
+                        @else
+                            <span class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-600 cursor-not-allowed">Next ›</span>
+                        @endif
+                    </div>
+                </div>
+            @endif
         </div>
 
         <!-- Subject Management Column (1 Col) -->

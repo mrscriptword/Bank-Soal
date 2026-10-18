@@ -7,6 +7,7 @@ use App\Models\ExamAttempt;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -14,14 +15,39 @@ class AdminController extends Controller
 {
     public function dashboard()
     {
-        $users = User::latest()->get();
-        $totalStudents = User::where('role', 'murid')->count();
-        $totalTeachers = User::where('role', 'guru')->count();
-        $totalAdmins = User::where('role', 'admin')->count();
+        // ✅ Pagination 50 user per halaman — mencegah load ribuan record sekaligus
+        // Tetap bisa di-loop di view dengan @foreach($users as $u)
+        $users = User::select('id', 'name', 'username', 'email', 'role', 'grade_level', 'created_at')
+            ->latest()
+            ->paginate(50);
 
-        $subjects = Subject::with('teacher')->get();
-        $exams = Exam::with(['subject', 'creator'])->get();
-        $attemptsCount = ExamAttempt::count();
+        // ✅ Cache role counts 3 menit — data ini jarang berubah
+        $roleCounts = Cache::driver('file')->remember('admin_user_role_counts', 180, function () {
+            return User::selectRaw("
+                SUM(CASE WHEN role = 'murid' THEN 1 ELSE 0 END) as murid_count,
+                SUM(CASE WHEN role = 'guru'  THEN 1 ELSE 0 END) as guru_count,
+                SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) as admin_count
+            ")->first();
+        });
+
+        $totalStudents = (int) ($roleCounts->murid_count ?? 0);
+        $totalTeachers = (int) ($roleCounts->guru_count  ?? 0);
+        $totalAdmins   = (int) ($roleCounts->admin_count ?? 0);
+
+        // Ambil subjects & exams langsung dari database (menghindari incomplete object saat unserialize)
+        $subjects = Subject::select('id', 'title', 'code', 'icon', 'teacher_id')
+            ->with('teacher:id,name')
+            ->get();
+
+        $exams = Exam::select('id', 'subject_id', 'title', 'grade_level', 'status', 'created_by', 'created_at')
+            ->with([
+                'subject:id,title,code',
+                'creator:id,name',
+            ])
+            ->latest()
+            ->get();
+
+        $attemptsCount = Cache::driver('file')->remember('admin_attempts_count', 120, fn () => ExamAttempt::count());
 
         return view('admin.dashboard', compact(
             'users',
@@ -46,13 +72,16 @@ class AdminController extends Controller
         ]);
 
         User::create([
-            'name' => $request->name,
-            'username' => strtolower($request->username),
-            'email' => strtolower($request->email),
-            'password' => Hash::make($request->password),
-            'role' => $request->role,
+            'name'        => strtolower($request->name) !== $request->name ? $request->name : ucwords($request->name),
+            'username'    => strtolower($request->username),
+            'email'       => strtolower($request->email),
+            'password'    => Hash::make($request->password),
+            'role'        => $request->role,
             'grade_level' => $request->grade_level ?: 'SMP Kelas 7',
         ]);
+
+        // ✅ Invalidasi cache role counts
+        Cache::driver('file')->forget('admin_user_role_counts');
 
         return redirect()->route('admin.dashboard')->with('success', 'Pengguna baru berhasil ditambahkan!');
     }
@@ -64,6 +93,10 @@ class AdminController extends Controller
         }
 
         $user->delete();
+
+        // ✅ Invalidasi cache role counts setelah hapus user
+        Cache::driver('file')->forget('admin_user_role_counts');
+
         return redirect()->route('admin.dashboard')->with('success', 'Pengguna berhasil dihapus.');
     }
 
