@@ -176,7 +176,12 @@
                                                 <h3 class="font-bold text-slate-900 dark:text-white text-base group-hover:text-blue-600 dark:group-hover:text-blue-400 transition" x-text="subj.title"></h3>
                                                 <span class="px-2 py-0.5 bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-[10px] font-bold rounded border border-purple-300 dark:border-purple-900/50" x-text="exam.grade_level || 'SD Kelas 4'"></span>
                                             </div>
-                                            <p class="text-xs text-slate-500 dark:text-zinc-400" x-text="`${exam.questions_count || exam.total_questions || 10} soal · ${exam.duration_minutes} menit`"></p>
+                                            <div class="flex items-center gap-2">
+                                                <p class="text-xs text-slate-500 dark:text-zinc-400" x-text="`${exam.questions_count !== undefined ? exam.questions_count : (exam.total_questions || 0)} soal · ${exam.duration_minutes} menit`"></p>
+                                                <template x-if="exam.questions_count === 0">
+                                                    <span class="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 text-[10px] font-semibold rounded-md border border-amber-300 dark:border-amber-800/60">Belum ada soal</span>
+                                                </template>
+                                            </div>
                                         </div>
                                         <div class="flex items-center gap-2">
                                             <span class="text-xs font-bold text-blue-600 dark:text-blue-400 group-hover:underline">Mulai</span>
@@ -325,7 +330,7 @@
                         <!-- Progress Line -->
                         <div class="w-full bg-slate-200 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
                             <div class="bg-gradient-to-r from-fuchsia-500 to-indigo-600 h-1.5 rounded-full transition-all duration-300"
-                                 :style="`width: ${((currentQuestionIndex + 1) / questions.length) * 100}%`"></div>
+                                 :style="`width: ${questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0}%`"></div>
                         </div>
 
                         <!-- Question Text & Image -->
@@ -683,10 +688,11 @@
                 </template>
 
                 <template x-if="currentStep === 3">
-                    <button type="button" @click="startExam()" :disabled="!selectedExam || totalAvailableExams === 0"
+                    <button type="button" @click="startExam()" :disabled="loading || !selectedExam || totalAvailableExams === 0"
                             :class="!selectedExam || totalAvailableExams === 0 ? 'opacity-40 cursor-not-allowed bg-slate-200 dark:bg-zinc-900 text-slate-400 dark:text-zinc-600' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md'"
-                            class="px-5 py-2.5 border border-slate-200 dark:border-zinc-800 text-sm font-semibold rounded-xl transition">
-                        Mulai Ujian
+                            class="px-5 py-2.5 border border-slate-200 dark:border-zinc-800 text-sm font-semibold rounded-xl transition flex items-center gap-2">
+                        <span x-show="loading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        <span x-text="loading ? 'Memuat Ujian...' : 'Mulai Ujian'"></span>
                     </button>
                 </template>
 
@@ -1062,23 +1068,39 @@
             },
 
             async startExam() {
-                if (!this.selectedExam) return;
+                if (!this.selectedExam) {
+                    alert('Silakan pilih salah satu ujian terlebih dahulu.');
+                    return;
+                }
 
                 this.loading = true;
+                this.errorMessage = '';
                 try {
                     const res = await fetch(`/api/exams/${this.selectedExam.id}`);
+                    if (!res.ok) {
+                        const errData = await res.json().catch(() => ({}));
+                        throw new Error(errData.message || `HTTP ${res.status}`);
+                    }
                     const data = await res.json();
-                    if (data.success) {
-                        this.questions = data.exam.questions;
+                    if (data.success && data.exam) {
+                        const qs = data.exam.questions || [];
+                        if (qs.length === 0) {
+                            alert('Ujian "' + (this.selectedExam.title || 'ini') + '" belum memiliki butir soal yang aktif. Silakan hubungi guru pengampu atau buat soal terlebih dahulu di dashboard guru.');
+                            return;
+                        }
+                        this.questions = qs;
                         this.currentQuestionIndex = 0;
                         this.userAnswers = {};
                         this.timeTakenSeconds = 0;
                         this.timerSeconds = (this.selectedExam.duration_minutes || 15) * 60;
                         this.startTimer();
                         this.currentStep = 4; // Step 4 is CBT Exam Player
+                    } else {
+                        alert(data.message || 'Gagal memulai ujian. Silakan coba lagi.');
                     }
                 } catch (e) {
-                    console.error(e);
+                    console.error('Error starting exam:', e);
+                    alert('Gagal memulai ujian: ' + (e.message || 'Terjadi kesalahan sistem.'));
                 } finally {
                     this.loading = false;
                 }
@@ -1221,9 +1243,12 @@
                     if (data.success) {
                         this.examResult = data;
                         this.currentStep = 5; // Step 5 is Exam Result
+                    } else {
+                        alert(data.message || 'Gagal menyimpan hasil ujian.');
                     }
                 } catch (e) {
-                    console.error(e);
+                    console.error('Submit exam error:', e);
+                    alert('Gagal mengumpulkan jawaban ujian. Periksa koneksi internet Anda.');
                 }
             },
 

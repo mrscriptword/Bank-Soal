@@ -101,6 +101,9 @@
                                         <span class="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold rounded border border-emerald-200 dark:border-emerald-900/50">
                                             ✅ Sudah: {{ $exam->completed_students->count() }}
                                         </span>
+                                        <span class="px-2 py-0.5 bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-400 text-[10px] font-bold rounded border border-sky-200 dark:border-sky-900/50">
+                                            ⚡ Sedang: {{ $exam->in_progress_students->count() }}
+                                        </span>
                                         <span class="px-2 py-0.5 bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 text-[10px] font-bold rounded border border-amber-200 dark:border-amber-900/50">
                                             ⏳ Belum: {{ $exam->pending_students->count() }}
                                         </span>
@@ -144,6 +147,11 @@
                                             :class="activeTab === 'sudah' ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-200 dark:bg-zinc-900 text-slate-700 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'"
                                             class="px-3 py-1.5 rounded-lg transition flex items-center gap-1">
                                         <span>✅ Sudah Mengerjakan ({{ $exam->completed_students->count() }})</span>
+                                    </button>
+                                    <button type="button" @click="activeTab = 'sedang'"
+                                            :class="activeTab === 'sedang' ? 'bg-sky-600 text-white font-bold' : 'bg-slate-200 dark:bg-zinc-900 text-slate-700 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'"
+                                            class="px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+                                        <span>⚡ Sedang Mengerjakan ({{ $exam->in_progress_students->count() }})</span>
                                     </button>
                                     <button type="button" @click="activeTab = 'belum'"
                                             :class="activeTab === 'belum' ? 'bg-amber-600 text-white font-bold' : 'bg-slate-200 dark:bg-zinc-900 text-slate-700 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'"
@@ -326,7 +334,46 @@
                                     </div>
                                 </div>
 
-                                <!-- TAB 3: BELUM MENGERJAKAN -->
+                                <!-- TAB 3: SEDANG MENGERJAKAN -->
+                                <div x-show="activeTab === 'sedang'" class="space-y-2">
+                                    <div class="flex items-center justify-between text-xs pb-1">
+                                        <span class="font-semibold text-slate-700 dark:text-zinc-300">Siswa yang Sedang Mengerjakan Ujian:</span>
+                                        <span class="text-[11px] text-sky-600 dark:text-sky-400 font-bold">Total: {{ $exam->in_progress_students->count() }} siswa</span>
+                                    </div>
+                                    <div class="space-y-2">
+                                        @forelse($exam->in_progress_students as $att)
+                                            <div class="bg-white dark:bg-zinc-900/90 border border-slate-200 dark:border-zinc-800 p-3.5 rounded-xl flex items-center justify-between text-xs shadow-sm">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-8 h-8 rounded-full bg-sky-100 dark:bg-sky-950 border border-sky-300 dark:border-sky-800 text-sky-700 dark:text-sky-400 font-bold flex items-center justify-center text-xs animate-pulse">
+                                                        ⚡
+                                                    </div>
+                                                    <div>
+                                                        <div class="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                                            <span>{{ $att->user->name ?? 'Siswa' }}</span>
+                                                            <span class="text-[10px] text-slate-500 dark:text-zinc-400 font-normal">({{ $att->user->username ?? '-' }})</span>
+                                                        </div>
+                                                        <div class="text-[11px] text-slate-500 dark:text-zinc-400 flex items-center gap-3">
+                                                            <span>Mulai: {{ $att->started_at ? $att->started_at->format('H:i:s (d M)') : ($att->created_at ? $att->created_at->format('H:i:s (d M)') : '-') }}</span>
+                                                            <span>Jenjang: {{ $att->user->grade_level ?? '-' }}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <span class="px-2.5 py-1 bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800/60 text-sky-700 dark:text-sky-400 text-xs font-semibold rounded-lg flex items-center gap-1.5">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-sky-500 animate-ping"></span>
+                                                        Sedang Mengerjakan
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        @empty
+                                            <div class="p-4 bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-xl text-center text-xs text-slate-500 dark:text-zinc-500">
+                                                Tidak ada siswa yang sedang aktif mengerjakan ujian ini saat ini.
+                                            </div>
+                                        @endforelse
+                                    </div>
+                                </div>
+
+                                <!-- TAB 4: BELUM MENGERJAKAN -->
                                 <div x-show="activeTab === 'belum'" class="space-y-2">
                                     <div class="flex items-center justify-between text-xs pb-1">
                                         <span class="font-semibold text-slate-700 dark:text-zinc-300">Siswa Target ({{ $exam->grade_level }}) yang Belum Memulai Ujian:</span>
@@ -375,17 +422,24 @@
             <!-- Directory Siswa Card -->
             <div class="bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 p-6 rounded-3xl space-y-4 shadow-sm">
                 <div class="flex items-center justify-between">
-                    <h2 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                        Status Siswa Terdaftar
-                    </h2>
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                            Status Siswa Terdaftar
+                        </h2>
+                        @if(!empty(Auth::user()->grade_level) && strtoupper(Auth::user()->grade_level) !== 'ALL')
+                            <span class="text-[11px] text-purple-600 dark:text-purple-400 font-semibold block mt-0.5">
+                                Jenjang Diampu: {{ Auth::user()->grade_level }}
+                            </span>
+                        @endif
+                    </div>
                     <span class="text-xs text-slate-500 dark:text-zinc-400 font-semibold">{{ $students->count() }} Murid</span>
                 </div>
 
                 <div class="space-y-2.5">
                     @forelse($students as $m)
                         @php
-                            $mAttemptsCount = $m->examAttempts->count();
+                            $mAttemptsCount = $m->exam_attempts_count ?? $m->examAttempts->count();
                         @endphp
                         <div class="bg-slate-50 dark:bg-[#141416] border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 flex items-center justify-between text-xs">
                             <div class="space-y-0.5">
@@ -397,7 +451,9 @@
                             </span>
                         </div>
                     @empty
-                        <p class="text-xs text-slate-500 dark:text-zinc-500 italic">Belum ada murid terdaftar di sistem.</p>
+                        <p class="text-xs text-slate-500 dark:text-zinc-500 italic">
+                            Belum ada murid terdaftar{{ !empty(Auth::user()->grade_level) && strtoupper(Auth::user()->grade_level) !== 'ALL' ? ' untuk jenjang ' . Auth::user()->grade_level : '' }}.
+                        </p>
                     @endforelse
                 </div>
             </div>
@@ -457,8 +513,10 @@
                 <select name="grade_level" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
                     <option value="SD Kelas 4">SD Kelas 4</option>
                     <option value="SD Kelas 5">SD Kelas 5</option>
+                    <option value="SD Kelas 6">SD Kelas 6</option>
                     <option value="SMP Kelas 7">SMP Kelas 7</option>
                     <option value="SMP Kelas 8">SMP Kelas 8</option>
+                    <option value="SMP Kelas 9">SMP Kelas 9</option>
                 </select>
             </div>
             <div class="space-y-1">
@@ -1203,8 +1261,10 @@ function openEditQuestionModal(question) {
                 <select name="grade_level" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
                     <option value="SD Kelas 4">SD Kelas 4</option>
                     <option value="SD Kelas 5">SD Kelas 5</option>
+                    <option value="SD Kelas 6">SD Kelas 6</option>
                     <option value="SMP Kelas 7">SMP Kelas 7</option>
                     <option value="SMP Kelas 8">SMP Kelas 8</option>
+                    <option value="SMP Kelas 9">SMP Kelas 9</option>
                 </select>
             </div>
 
@@ -1278,6 +1338,7 @@ function openEditQuestionModal(question) {
             <div class="p-3 bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-2xl text-[11px] text-teal-800 dark:text-teal-300 space-y-1">
                 <span class="font-bold block">💡 Info & Ketentuan Sistem Terbaru:</span>
                 <p>• <strong>5 Tipe Soal:</strong> Pilihan Ganda (1 jawaban), Menjodohkan (Pasangan), Susun Urutan, Tabel Benar/Salah, dan Pilihan Ganda Kompleks (Jawaban > 1).</p>
+                <p>• <strong>Format Fleksibel:</strong> Label seperti <code>Pembahasan:</code>, <code>Materi:</code>, <code>Indikator:</code>, <code>Level:</code>, <code>Bobot:</code>, maupun <code>Tipe:</code> bersifat <strong>OPSIONAL</strong>. Jika tidak ditulis, sistem otomatis mengekstrak soal & pilihan jawaban secara cerdas.</p>
                 <p>• <strong>Lampiran Gambar:</strong> Gambar pada soal dapat diunggah maksimal <strong>500 KB</strong> (Format: JPG, PNG, WebP) melalui tombol Input Soal / Edit Soal.</p>
             </div>
 

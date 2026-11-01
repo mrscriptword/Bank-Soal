@@ -22,42 +22,90 @@ class GuruController extends Controller
             ->withCount(['exams'])
             ->get();
 
-        // ✅ Batasi kolom: hanya kolom yang dipakai untuk filter grade & tampil di view
-        $students = \App\Models\User::where('role', 'murid')
-            ->select('id', 'name', 'grade_level')
+        // Seluruh murid terdaftar di sistem untuk evaluasi target ujian
+        $allStudents = \App\Models\User::where('role', 'murid')
+            ->select('id', 'name', 'username', 'grade_level')
+            ->withCount(['examAttempts'])
             ->get();
+
+        $guruGrade = trim((string)($guru->grade_level ?? ''));
+
+        // Helper untuk mencocokkan jenjang kelas murid dengan target
+        $matchGrade = function (?string $targetGrade, ?string $studentGrade) {
+            if (empty($targetGrade) || strtoupper($targetGrade) === 'ALL') {
+                return true;
+            }
+            if (empty($studentGrade)) {
+                return false;
+            }
+            $tg = strtolower(trim($targetGrade));
+            $sg = strtolower(trim($studentGrade));
+            if ($tg === $sg) {
+                return true;
+            }
+            if (str_starts_with($sg, $tg) || str_starts_with($tg, $sg)) {
+                return true;
+            }
+            if (preg_match('/kelas\s*(\d+)/i', $tg, $mt) && preg_match('/kelas\s*(\d+)/i', $sg, $ms)) {
+                $sameSchoolLevel = true;
+                if (str_contains($tg, 'sd') && !str_contains($sg, 'sd')) $sameSchoolLevel = false;
+                if (str_contains($tg, 'smp') && !str_contains($sg, 'smp')) $sameSchoolLevel = false;
+                if (str_contains($tg, 'sma') && !str_contains($sg, 'sma')) $sameSchoolLevel = false;
+                if ($sameSchoolLevel && $mt[1] === $ms[1]) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        // Filter murid untuk kartu "Status Siswa Terdaftar" khusus berdasarkan jenjang kelas yang diampu guru
+        $students = $allStudents->filter(function ($student) use ($guruGrade, $matchGrade) {
+            return $matchGrade($guruGrade, $student->grade_level);
+        })->values();
 
         // ✅ Eager loading spesifik: batasi kolom di setiap relasi
         // - subject: hanya id, title, code
-        // - questions: hanya id & exam_id (untuk count)
-        // - attempts: hanya kolom yang dibutuhkan + user (id, name, grade_level)
+        // - questions: muat seluruh kolom (question_text, options, metadata) untuk ditampilkan di daftar & modal edit
+        // - attempts: hanya kolom yang dibutuhkan + user (id, name, username, grade_level)
         $exams = Exam::with([
                 'subject:id,title,code',
-                'questions:id,exam_id',
+                'questions',
                 'attempts' => fn ($q) => $q
-                    ->select('id', 'exam_id', 'user_id', 'score', 'correct_answers', 'total_questions', 'time_taken_seconds', 'status', 'completed_at', 'created_at')
-                    ->with('user:id,name,grade_level'),
+                    ->select('id', 'exam_id', 'user_id', 'score', 'correct_answers', 'total_questions', 'time_taken_seconds', 'status', 'started_at', 'completed_at', 'created_at')
+                    ->with('user:id,name,username,grade_level'),
             ])
             ->select('id', 'subject_id', 'title', 'duration_minutes', 'passing_score', 'grade_level', 'status', 'allow_repeat', 'created_at')
             ->withCount(['attempts'])
             ->get()
-            ->map(function ($exam) use ($students) {
+            ->map(function ($exam) use ($allStudents, $matchGrade) {
                 // Ambil 1 attempt terbaru per user (tanpa duplikasi)
                 $attemptsByUser = $exam->attempts->sortByDesc('created_at')->unique('user_id');
-                $completedUserIds = $attemptsByUser->pluck('user_id')->toArray();
+
+                // Siswa yang sudah menyelesaikan ujian
+                $completedAttempts = $attemptsByUser->filter(function ($att) {
+                    return $att->status === 'completed' || !empty($att->completed_at);
+                })->values();
+
+                // Siswa yang sedang mengerjakan ujian
+                $inProgressAttempts = $attemptsByUser->filter(function ($att) {
+                    return $att->status === 'in_progress' && empty($att->completed_at);
+                })->values();
+
+                $activeOrDoneUserIds = $attemptsByUser->pluck('user_id')->toArray();
 
                 // Filter murid sesuai grade_level ujian
-                $targetStudents = $students->filter(function ($student) use ($exam) {
-                    if (!$exam->grade_level || $exam->grade_level === 'ALL') {
-                        return true;
-                    }
-                    return $student->grade_level === $exam->grade_level;
+                $targetStudents = $allStudents->filter(function ($student) use ($exam, $matchGrade) {
+                    return $matchGrade($exam->grade_level, $student->grade_level);
                 });
 
-                $exam->completed_students = $attemptsByUser->values();
-                $exam->pending_students = $targetStudents->reject(function ($student) use ($completedUserIds) {
-                    return in_array($student->id, $completedUserIds);
+                // Siswa yang belum mulai
+                $pendingStudents = $targetStudents->reject(function ($student) use ($activeOrDoneUserIds) {
+                    return in_array($student->id, $activeOrDoneUserIds);
                 })->values();
+
+                $exam->completed_students   = $completedAttempts;
+                $exam->in_progress_students = $inProgressAttempts;
+                $exam->pending_students     = $pendingStudents;
 
                 return $exam;
             });
@@ -91,7 +139,7 @@ class GuruController extends Controller
             'title' => 'required|string|max:255',
             'duration_minutes' => 'required|integer|min:1',
             'passing_score' => 'required|integer|min:0|max:100',
-            'grade_level' => 'required|in:SD Kelas 4,SD Kelas 5,SMP Kelas 7,SMP Kelas 8',
+            'grade_level' => 'required|in:SD Kelas 4,SD Kelas 5,SD Kelas 6,SMP Kelas 7,SMP Kelas 8,SMP Kelas 9',
         ]);
 
         $exam = Exam::create([
@@ -361,7 +409,7 @@ class GuruController extends Controller
             'title' => 'required|string|max:255',
             'duration_minutes' => 'required|integer|min:1',
             'passing_score' => 'required|integer|min:0|max:100',
-            'grade_level' => 'required|in:SD Kelas 4,SD Kelas 5,SMP Kelas 7,SMP Kelas 8',
+            'grade_level' => 'required|in:SD Kelas 4,SD Kelas 5,SD Kelas 6,SMP Kelas 7,SMP Kelas 8,SMP Kelas 9',
             'pdf_file' => 'required|file|mimes:pdf|max:10240',
         ]);
 
@@ -422,91 +470,84 @@ class GuruController extends Controller
     public function downloadTemplate()
     {
         $wordHtml = "<html xmlns:o='urn:schemas-microsoft-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>\n" .
-            "<head><meta charset='utf-8'><title>Template & Panduan Naskah Bank Soal</title>\n" .
+            "<head><meta charset='utf-8'><title>Template Naskah Bank Soal</title>\n" .
             "<style>\n" .
             "body { font-family: 'Calibri', 'Arial', sans-serif; font-size: 11pt; line-height: 1.5; color: #1e293b; margin: 25px; }\n" .
             "h2 { color: #1e40af; border-bottom: 2px solid #3b82f6; padding-bottom: 4px; margin-top: 20px; }\n" .
             "h3 { color: #0369a1; margin-top: 15px; }\n" .
             ".info-box { background: #f0fdf4; border: 1px solid #86efac; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 10pt; }\n" .
-            ".code { font-family: 'Courier New', monospace; background: #f1f5f9; padding: 2px 4px; }\n" .
+            ".alert-box { background: #fff1f2; border: 1px solid #fecdd3; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 10pt; color: #9f1239; }\n" .
             "</style></head>\n" .
             "<body>\n" .
             "<h2>PANDUAN & TEMPLATE NASKAH BANK SOAL</h2>\n" .
+            "<div class='alert-box'>\n" .
+            "<b>⚠️ CATATAN PENTING:</b><br/>\n" .
+            "• Sistem sangat cerdas & fleksibel: <b>TIDAK WAJIB</b> mencantumkan Pembahasan, Materi, Indikator, ataupun Level.<br/>\n" .
+            "• Soal biasa (nomor soal, pertanyaan, pilihan A-D, dan Kunci) akan langsung terbaca dan terimpor dengan rapi.<br/>\n" .
+            "• <b>Hapus atau ganti</b> teks panduan dan contoh di bawah ini dengan naskah soal Anda sendiri sebelum menyimpan/mengekspor ke format <b>PDF</b>.\n" .
+            "</div>\n" .
             "<div class='info-box'>\n" .
-            "<b>💡 Petunjuk Penggunaan:</b><br/>\n" .
-            "1. Sistem mendukung 5 model soal: Pilihan Ganda (multiple_choice), Menjodohkan (matching), Susun Urutan (ordering), Tabel Benar/Salah (true_false_table), dan Pilihan Ganda Kompleks (multiple_select).<br/>\n" .
-            "2. Anda dapat menambahkan <b>Gambar pada Soal</b> dengan ukuran maksimal <b>500 KB</b> (Format: JPG, PNG, WebP) langsung melalui dashboard portal guru.<br/>\n" .
-            "3. Simpan file ini dan export ke format <b>PDF</b> untuk melakukan import otomatis ke paket ujian.\n" .
+            "<b>💡 Petunjuk Format:</b><br/>\n" .
+            "• Penomoran soal: <code>1. Pertanyaan...</code> atau <code>1) Pertanyaan...</code><br/>\n" .
+            "• Pilihan ganda: <code>a. Pilihan 1</code> atau <code>A. Pilihan 1</code> (bisa 3 opsi A-C atau 4 opsi A-D)<br/>\n" .
+            "• Kunci jawaban per soal: <code>Kunci: B</code> atau <code>Jawaban: B</code> (opsional jika ditaruh di akhir naskah)<br/>\n" .
+            "• Pembahasan (Opsional): <code>Pembahasan: Penjelasan cara penyelesaian...</code><br/>\n" .
+            "• Anda juga dapat melampirkan <b>Gambar</b> pada setiap soal melalui portal guru setelah soal terimpor.\n" .
             "</div>\n" .
             "<hr/>\n" .
-            "<h3>CONTOH 1: Pilihan Ganda Biasa (1 Jawaban Benar)</h3>\n" .
+            "<h3>CONTOH 1: Pilihan Ganda Sederhana (Format Paling Umum)</h3>\n" .
             "1. Hasil dari 15 + 25 x 2 adalah...<br/>\n" .
-            "Materi: Operasi Hitung Campuran<br/>\n" .
-            "Indikator: Siswa dapat menghitung perkalian dan penjumlahan<br/>\n" .
-            "Level: C3<br/>\n" .
-            "Bobot: 1<br/>\n" .
-            "Tipe: multiple_choice<br/>\n" .
             "a. 80<br/>\n" .
             "b. 65<br/>\n" .
             "c. 55<br/>\n" .
             "d. 70<br/>\n" .
             "Kunci: B<br/>\n" .
-            "Error A: Penjumlahan didahulukan daripada perkalian<br/>\n" .
-            "Diagnosis A: Siswa belum paham prioritas operasi hitung<br/>\n" .
-            "Treatment A: Latihan hirarki operasi hitung (KABATAKU)<br/>\n" .
-            "Pembahasan: Dahulukan perkalian 25 x 2 = 50. Lalu 15 + 50 = 65.<br/>\n" .
             "<br/>\n" .
-            "<h3>CONTOH 2: Menjodohkan / Pasangan (Matching)</h3>\n" .
-            "2. Jodohkan nama bangun datar di sebelah kiri dengan rumus luasnya di sebelah kanan:<br/>\n" .
-            "Materi: Geometri Bangun Datar<br/>\n" .
-            "Indikator: Menjodohkan rumus bangun datar<br/>\n" .
+            "<h3>CONTOH 2: Pilihan Ganda Lengkap dengan Pembahasan & Metadata (Opsional)</h3>\n" .
+            "2. Nilai dari ³√64 adalah …<br/>\n" .
+            "Materi: Akar Pangkat Tiga<br/>\n" .
+            "Indikator: Siswa dapat menentukan nilai akar pangkat tiga dari bilangan kubik<br/>\n" .
             "Level: C2<br/>\n" .
-            "Bobot: 2<br/>\n" .
+            "Bobot: 1<br/>\n" .
+            "Tipe: multiple_choice<br/>\n" .
+            "a. 4<br/>\n" .
+            "b. 8<br/>\n" .
+            "c. 12<br/>\n" .
+            "d. 16<br/>\n" .
+            "Kunci: A<br/>\n" .
+            "Pembahasan: ³√64 = 4 karena 4 × 4 × 4 = 64.<br/>\n" .
+            "<br/>\n" .
+            "<h3>CONTOH 3: Menjodohkan / Pasangan (Matching)</h3>\n" .
+            "3. Pasangkan bangun datar berikut dengan rumus luasnya:<br/>\n" .
             "Tipe: matching<br/>\n" .
             "Persegi => s x s<br/>\n" .
             "Persegi Panjang => p x l<br/>\n" .
             "Segitiga => 1/2 x a x t<br/>\n" .
             "Lingkaran => π x r²<br/>\n" .
-            "Pembahasan: Pasangan rumus luas bangun datar sesuai definisi geometri.<br/>\n" .
             "<br/>\n" .
-            "<h3>CONTOH 3: Susun Urutan (Ordering)</h3>\n" .
-            "3. Urutkan tahapan metamorfosis kupu-kupu secara kronologis dari awal hingga akhir:<br/>\n" .
-            "Materi: Daur Hidup Hewan<br/>\n" .
-            "Indikator: Mengurutkan daur hidup kupu-kupu<br/>\n" .
-            "Level: C2<br/>\n" .
-            "Bobot: 2<br/>\n" .
+            "<h3>CONTOH 4: Susun Urutan Kronologis (Ordering)</h3>\n" .
+            "4. Urutkan tahapan metamorfosis kupu-kupu dari awal:<br/>\n" .
             "Tipe: ordering<br/>\n" .
             "1. Telur<br/>\n" .
             "2. Ulat (Larva)<br/>\n" .
             "3. Kepompong (Pupa)<br/>\n" .
             "4. Kupu-kupu Dewasa (Imago)<br/>\n" .
-            "Pembahasan: Daur hidup dimulai dari telur, menetas menjadi ulat, membungkus diri menjadi pupa/kepompong, lalu menjadi kupu-kupu dewasa.<br/>\n" .
             "<br/>\n" .
-            "<h3>CONTOH 4: Tabel Benar / Salah (True/False Table)</h3>\n" .
-            "4. Berdasarkan situasi tersebut, tentukan Benar atau Salah untuk setiap pernyataan berikut:<br/>\n" .
-            "Materi: Aritmatika Sosial<br/>\n" .
-            "Indikator: Menilai kebenaran pernyataan matematis<br/>\n" .
-            "Level: C3<br/>\n" .
-            "Bobot: 2<br/>\n" .
+            "<h3>CONTOH 5: Tabel Pernyataan Benar / Salah (True/False Table)</h3>\n" .
+            "5. Tentukan Benar atau Salah untuk setiap pernyataan berikut:<br/>\n" .
             "Tipe: true_false_table<br/>\n" .
-            "A. Sisa pekerjaan setelah hari ke-10 setara dengan 800 hari kerja 1 orang. => Benar<br/>\n" .
-            "B. Selama 10 hari pertama proyek mengalami keterlambatan 5 orang. => Salah<br/>\n" .
-            "C. Manajer cukup mempekerjakan kembali 15 orang tanpa pekerja tambahan. => Salah<br/>\n" .
-            "Pembahasan: Analisis perhitungan beban hari kerja menunjukkan pernyataan A benar, sedangkan B dan C tidak tepat.<br/>\n" .
+            "A. 15 adalah bilangan prima. => Salah<br/>\n" .
+            "B. 17 adalah bilangan prima. => Benar<br/>\n" .
+            "C. 2 adalah satu-satunya bilangan prima genap. => Benar<br/>\n" .
             "<br/>\n" .
-            "<h3>CONTOH 5: Pilihan Ganda Kompleks (Jawaban Benar Lebih Dari Satu)</h3>\n" .
-            "5. Manakah dari bilangan berikut yang merupakan bilangan prima kurang dari 20? (Pilih semua yang benar)<br/>\n" .
-            "Materi: Bilangan Prima<br/>\n" .
-            "Indikator: Mengidentifikasi bilangan prima<br/>\n" .
-            "Level: C2<br/>\n" .
-            "Bobot: 2<br/>\n" .
+            "<h3>CONTOH 6: Pilihan Ganda Kompleks (Jawaban Benar Lebih Dari Satu)</h3>\n" .
+            "6. Manakah dari bilangan berikut yang merupakan kelipatan dari 6? (Pilih semua yang benar)<br/>\n" .
             "Tipe: multiple_select<br/>\n" .
-            "a. 2<br/>\n" .
-            "b. 9<br/>\n" .
-            "c. 13<br/>\n" .
-            "d. 17<br/>\n" .
+            "a. 12<br/>\n" .
+            "b. 15<br/>\n" .
+            "c. 24<br/>\n" .
+            "d. 30<br/>\n" .
             "Kunci: A, C, D<br/>\n" .
-            "Pembahasan: 2, 13, dan 17 hanya memiliki 2 faktor (1 dan dirinya sendiri), sedangkan 9 memiliki 3 faktor (1, 3, 9) sehingga bukan prima.<br/>\n" .
             "</body></html>";
 
         return response($wordHtml, 200, [
@@ -518,64 +559,86 @@ class GuruController extends Controller
     public function parsePdfTextToQuestions(string $text): array
     {
         $text = str_replace(["\r\n", "\r"], "\n", $text);
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $text);
+        $text = str_replace(["\xc2\xa0", "&nbsp;"], ' ', $text);
 
-        // Extract Global Answer Key table if present (e.g. "KUNCI JAWABAN: 1. A 2. B 3. C")
+        // 1. Ekstrak Tabel Kunci Jawaban Global di akhir/awal dokumen (misal: "KUNCI JAWABAN: 1. A 2. B 3. C")
         $globalKeys = [];
-        // Fixed regex: explicitly require JAWABAN or DAFTAR or ANSWER KEY to avoid matching individual "Kunci: A"
-        if (preg_match('/(?:KUNCI JAWABAN|DAFTAR KUNCI|ANSWER KEY)\s*:?\s*\n?(.*)/is', $text, $mGlobal, PREG_OFFSET_CAPTURE)) {
+        if (preg_match('/(?:KUNCI\s*JAWABAN|DAFTAR\s*KUNCI|ANSWER\s*KEY)\s*:?\s*\n?(.*)/is', $text, $mGlobal, PREG_OFFSET_CAPTURE)) {
             $globalSection = $mGlobal[1][0];
-            if (preg_match_all('/(?:Soal\s*)?(\d+)[\.\)]\s*:?\s*\(?\s*([a-d])\s*\)?/i', $globalSection, $mMatches, PREG_SET_ORDER)) {
+            if (preg_match_all('/(?:Soal\s*)?(\d+)[\.\)]\s*:?\s*\(?\s*([a-eA-E])\s*\)?/i', $globalSection, $mMatches, PREG_SET_ORDER)) {
                 foreach ($mMatches as $m) {
                     $globalKeys[(int)$m[1]] = strtolower($m[2]);
                 }
             }
-            // Strip global key section from main text so it isn't parsed as question blocks
             $text = substr($text, 0, $mGlobal[0][1]);
         }
 
-        // Split text line by line to locate question headers
         $lines = explode("\n", $text);
         $blocks = [];
         $currentBlock = [];
-        $questionNumber = 0;
         $questionNumbers = [];
         $lastQuestionNumber = 0;
+        $insideRealQuestion = false;
 
         foreach ($lines as $line) {
             $trimmed = trim($line);
-            if (empty($trimmed)) {
-                continue;
-            }
-
-            // Reset question counter if a new section starts (e.g., "BAGIAN 2:", "BAGIAN A:")
-            if (preg_match('/^(?:BAGIAN|SECTION|BAG)[\s:]*[A-Z0-9]+/i', $trimmed)) {
-                $lastQuestionNumber = 0;
-                if (!empty($currentBlock)) {
-                    $currentBlock[] = $trimmed;
+            if ($trimmed === '') {
+                if ($insideRealQuestion && !empty($currentBlock)) {
+                    $currentBlock[] = '';
                 }
                 continue;
             }
 
-            // Check if line starts with question number: e.g. "1.", "2)", "Soal 1:"
-            if (preg_match('/^(?:Soal\s*)?(\d+)[\.\)]\s+(.*)/i', $trimmed, $m)) {
-                $qNum = (int)$m[1];
-                $isExplicitSoal = preg_match('/^Soal\s+\d+/i', $trimmed);
+            // Bersihkan header / footer halaman dokumen PDF
+            if (preg_match('/^(?:Halaman|Page|Hal\.)\s*\d+/i', $trimmed)) continue;
+            if (preg_match('/^---\s*\d+\s*---$/', $trimmed)) continue;
+            if (preg_match('/^(?:DOKUMEN\s+NEGARA|SANGAT\s+RAHASIA|BANK\s+SOAL|UJIAN\s+SEKOLAH)/i', $trimmed)) continue;
 
-                // Start a new block if this looks like a new question (incrementing sequence, or explicitly "Soal X")
-                if ($isExplicitSoal || $lastQuestionNumber === 0 || ($qNum > $lastQuestionNumber && $qNum <= $lastQuestionNumber + 10)) {
+            // Reset counter nomor jika ada seksi / paket baru
+            if (preg_match('/^(?:BAGIAN|SECTION|PAKET|ROMBEL)[\s:]*[A-Z0-9]+/i', $trimmed)) {
+                $lastQuestionNumber = 0;
+                continue;
+            }
+
+            // Deteksi baris awal nomor soal: misal "1. ", "2) ", "Soal 1: ", "1 . ", dll.
+            if (preg_match('/^(?:Soal\s*(?:No\.?|Nomor)?\s*|No\.?\s*)?(\d+)[\.\:\)](?:\s+(.*)|\s*$)/i', $trimmed, $m)) {
+                $qNum = (int)$m[1];
+                $rest = isset($m[2]) ? trim($m[2]) : '';
+
+                $isNextQuestion = false;
+                if ($lastQuestionNumber === 0) {
+                    // Soal pertama di dokumen (mulai dari nomor 1 sampai 5)
+                    if ($qNum >= 1 && $qNum <= 5) {
+                        // Jangan terkecoh teks petunjuk template (misal: "1. Sistem mendukung 5 model soal...")
+                        if (!preg_match('/^(?:Sistem\s+mendukung|Petunjuk|Gunakan|Anda\s+dapat|Simpan\s+file|Format|Template)/i', $rest)) {
+                            $isNextQuestion = true;
+                        }
+                    }
+                } else {
+                    // Progresi nomor soal yang valid (misal: 1 -> 2, atau lompat 1-5 jika guru menghapus nomor)
+                    // PENTING: Jika $qNum <= $lastQuestionNumber (misal (1), (2) sub-pernyataan di dalam soal 16), itu BUKAN soal baru!
+                    if ($qNum > $lastQuestionNumber && $qNum <= $lastQuestionNumber + 5) {
+                        $isNextQuestion = true;
+                    }
+                }
+
+                if ($isNextQuestion) {
                     if (!empty($currentBlock)) {
                         $blocks[] = implode("\n", $currentBlock);
                         $currentBlock = [];
                     }
-                    $questionNumber = $qNum;
                     $lastQuestionNumber = $qNum;
-                    $questionNumbers[] = $questionNumber;
-                    $currentBlock[] = $m[2];
+                    $questionNumbers[] = $qNum;
+                    $insideRealQuestion = true;
+                    if (!empty($rest)) {
+                        $currentBlock[] = $rest;
+                    }
                     continue;
                 }
             }
 
-            if (!empty($currentBlock)) {
+            if ($insideRealQuestion) {
                 $currentBlock[] = $trimmed;
             }
         }
@@ -589,29 +652,8 @@ class GuruController extends Controller
             $qNum = $questionNumbers[$idx] ?? ($idx + 1);
             $gKey = $globalKeys[$qNum] ?? null;
             $parsed = $this->formatParsedQuestionBlock($block, $gKey);
-            if ($parsed) {
+            if ($parsed && !empty($parsed['question_text'])) {
                 $questions[] = $parsed;
-            }
-        }
-
-        // Fallback if blocks split didn't capture questions
-        if (empty($questions)) {
-            $pattern = '/(?:\n+|\A)(?:Soal\s*)?(\d+)[\.\)]\s*/i';
-            $splitBlocks = preg_split($pattern, $text, -1, PREG_SPLIT_NO_EMPTY | PREG_SPLIT_DELIM_CAPTURE);
-            if (count($splitBlocks) >= 2) {
-                for ($i = 0; $i < count($splitBlocks); $i++) {
-                    $item = trim($splitBlocks[$i]);
-                    if (is_numeric($item)) {
-                        $qNum = (int)$item;
-                        $content = $splitBlocks[$i + 1] ?? '';
-                        $i++;
-                        $gKey = $globalKeys[$qNum] ?? null;
-                        $parsed = $this->formatParsedQuestionBlock($content, $gKey);
-                        if ($parsed) {
-                            $questions[] = $parsed;
-                        }
-                    }
-                }
             }
         }
 
@@ -625,198 +667,322 @@ class GuruController extends Controller
             return null;
         }
 
-        // 1. Extract Explanation / Pembahasan
-        $explanation = null;
-        if (preg_match('/(?:Pembahasan|Penjelasan|Explanation)\s*:\s*(.+)/is', $block, $mExp, PREG_OFFSET_CAPTURE)) {
-            $explanation = trim($mExp[1][0]);
-            $block = trim(substr($block, 0, $mExp[0][1]));
-        }
+        // Normalisasi spasi dan baris
+        $block = str_replace(["\r\n", "\r"], "\n", $block);
+        $block = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $block);
+        $block = str_replace(["\xc2\xa0", "&nbsp;"], ' ', $block);
 
-        // 2. Extract new metadata using regex replacements to remove them from block
-        $materi = null;
-        if (preg_match('/Materi\s*:\s*(.+?)(?=\n|$)/i', $block, $m)) {
-            $materi = trim($m[1]);
-            $block = str_ireplace($m[0], '', $block);
-        }
+        $lines = explode("\n", $block);
 
-        $indikator = null;
-        if (preg_match('/Indikator\s*:\s*(.+?)(?=\n|$)/i', $block, $m)) {
-            $indikator = trim($m[1]);
-            $block = str_ireplace($m[0], '', $block);
-        }
-
-        $cognitive_level = null;
-        if (preg_match('/Level\s*:\s*(C[1-4])(?=\n|$)/i', $block, $m)) {
-            $cognitive_level = strtoupper(trim($m[1]));
-            $block = str_ireplace($m[0], '', $block);
-        }
-
+        $questionLines = [];
+        $explanationLines = [];
+        $materiLines = [];
+        $indikatorLines = [];
+        $cognitiveLevel = 'C2';
         $bobot = 1;
-        if (preg_match('/Bobot\s*:\s*(\d+)(?=\n|$)/i', $block, $m)) {
-            $bobot = (int)$m[1];
-            $block = str_ireplace($m[0], '', $block);
-        }
-
-        $type = 'multiple_choice';
-        if (preg_match('/Tipe\s*:\s*(multiple_choice|matching|ordering)(?=\n|$)/i', $block, $m)) {
-            $type = strtolower(trim($m[1]));
-            $block = str_ireplace($m[0], '', $block);
-        }
-
+        $type = null;
+        $correctKey = $globalKey;
+        $options = ['a' => null, 'b' => null, 'c' => null, 'd' => null];
         $wrongAnswerData = [];
-        foreach(['A', 'B', 'C', 'D'] as $opt) {
-            if (preg_match('/Error\s+'.$opt.'\s*:\s*(.+?)(?=\n|$)/i', $block, $m)) {
-                $wrongAnswerData[strtolower($opt)]['error_pattern'] = trim($m[1]);
-                $block = str_ireplace($m[0], '', $block);
-            }
-            if (preg_match('/Diagnosis\s+'.$opt.'\s*:\s*(.+?)(?=\n|$)/i', $block, $m)) {
-                $wrongAnswerData[strtolower($opt)]['diagnosis'] = trim($m[1]);
-                $block = str_ireplace($m[0], '', $block);
-            }
-            if (preg_match('/Treatment\s+'.$opt.'\s*:\s*(.+?)(?=\n|$)/i', $block, $m)) {
-                $wrongAnswerData[strtolower($opt)]['treatment'] = trim($m[1]);
-                $block = str_ireplace($m[0], '', $block);
-            }
-        }
-
         $pairData = [];
         $sequenceData = [];
-        
-        $block = trim($block);
-        
-        // 3. Answer Key
-        $correctOpt = $globalKey;
-        $answerText = null;
-        $hasKeyFromPdf = !empty($globalKey);
 
-        if (!$correctOpt) {
-            if (preg_match('/(?:Kunci\s*Jawaban|Kunci|Jawaban\s*Benar|Jawaban|Jwb|Key|Ans)\s*:?\s*(?:Benar\s*)?\n?\s*(?:\(?|\[?)\s*([a-d])\s*(?:\)?|\]?)(?:\.|\s|\n|$)/i', $block, $mKey, PREG_OFFSET_CAPTURE)) {
-                $correctOpt = strtolower($mKey[1][0]);
-                $hasKeyFromPdf = true;
-                $block = trim(substr($block, 0, $mKey[0][1]));
-            } elseif (preg_match('/(?:Kunci\s*Jawaban|Kunci|Jawaban\s*Benar|Jawaban|Jwb|Key|Ans)\s*:\s*(.+)/i', $block, $mVal, PREG_OFFSET_CAPTURE)) {
-                $answerText = trim($mVal[1][0]);
-                $block = trim(substr($block, 0, $mVal[0][1]));
-            }
-        }
+        $currentSection = 'question';
+        $currentOpt = null;
+        $currentDiagnosticOpt = null;
 
-        // 4. Extract Questions, Options, Matches, Sequences
-        $optA = null; $optB = null; $optC = null; $optD = null;
-        $questionText = $block;
-
-        if ($type === 'matching') {
-            // Find lines with "="
-            $lines = explode("\n", $block);
-            $qLines = [];
-            foreach($lines as $line) {
-                if (preg_match('/^(.+?)\s*=\s*(.+)$/', trim($line), $m)) {
-                    $pairData[] = [
-                        'left' => trim(preg_replace('/^[a-d][\.\)]\s*/i', '', trim($m[1]))),
-                        'right' => trim($m[2])
-                    ];
-                } else {
-                    $qLines[] = $line;
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if ($trimmed === '') {
+                if ($currentSection === 'question' && !empty($questionLines)) {
+                    $questionLines[] = '';
                 }
-            }
-            $questionText = implode("\n", $qLines);
-        } elseif ($type === 'ordering') {
-            // Find lines starting with numbers
-            $lines = explode("\n", $block);
-            $qLines = [];
-            foreach($lines as $line) {
-                if (preg_match('/^\d+[\.\)]\s*(.+)$/', trim($line), $m)) {
-                    $sequenceData[] = trim($m[1]);
-                } else {
-                    $qLines[] = $line;
-                }
-            }
-            $questionText = implode("\n", $qLines);
-        } else {
-            // Standard Multiple Choice Extraction
-            $patternA = '/(?:^|\n|\s)a[\.\)]\s*/i';
-            $patternB = '/(?:^|\n|\s)b[\.\)]\s*/i';
-            $patternC = '/(?:^|\n|\s)c[\.\)]\s*/i';
-            $patternD = '/(?:^|\n|\s)d[\.\)]\s*/i';
-
-            $posA = preg_match($patternA, $block, $mA, PREG_OFFSET_CAPTURE) ? $mA[0][1] : -1;
-            $posB = preg_match($patternB, $block, $mB, PREG_OFFSET_CAPTURE) ? $mB[0][1] : -1;
-            $posC = preg_match($patternC, $block, $mC, PREG_OFFSET_CAPTURE) ? $mC[0][1] : -1;
-            $posD = preg_match($patternD, $block, $mD, PREG_OFFSET_CAPTURE) ? $mD[0][1] : -1;
-
-            if ($posA !== -1 && $posB !== -1 && $posC !== -1 && $posD !== -1) {
-                $questionText = trim(substr($block, 0, $posA));
-
-                $rawA = substr($block, $posA, $posB - $posA);
-                $rawB = substr($block, $posB, $posC - $posB);
-                $rawC = substr($block, $posC, $posD - $posC);
-                $rawD = substr($block, $posD);
-
-                $optA = trim(preg_replace('/^(?:\n|\s)*a[\.\)]\s*/i', '', $rawA));
-                $optB = trim(preg_replace('/^(?:\n|\s)*b[\.\)]\s*/i', '', $rawB));
-                $optC = trim(preg_replace('/^(?:\n|\s)*c[\.\)]\s*/i', '', $rawC));
-                $optD = trim(preg_replace('/^(?:\n|\s)*d[\.\)]\s*/i', '', $rawD));
-            } else {
-                // Fallback for unstructured lines
-                $lines = array_values(array_filter(array_map('trim', explode("\n", $block))));
-                if (count($lines) >= 2) {
-                    $questionText = $lines[0];
-                    $optA = $lines[1] ?? 'Pilihan A';
-                    $optB = $lines[2] ?? 'Pilihan B';
-                    $optC = $lines[3] ?? 'Pilihan C';
-                    $optD = $lines[4] ?? 'Pilihan D';
-                }
-            }
-        }
-
-        // Clean up question text header lines if any
-        $linesQ = explode("\n", $questionText);
-        $cleanLinesQ = [];
-        foreach ($linesQ as $lQ) {
-            $trimLQ = trim($lQ);
-            if (preg_match('/^(?:SOAL-SOAL|SD|SMP|SMA|KELAS|TKA)/i', $trimLQ)) {
                 continue;
             }
-            $cleanLinesQ[] = $trimLQ;
-        }
-        $questionText = implode("\n", $cleanLinesQ);
 
-        // Match answerText to option if letter was not given (e.g. Jawaban: 5.000)
-        if (!$correctOpt && $answerText && $type === 'multiple_choice') {
-            $cleanAns = strtolower(trim($answerText));
-            if ($optA && strtolower(trim($optA)) === $cleanAns) { $correctOpt = 'a'; $hasKeyFromPdf = true; }
-            elseif ($optB && strtolower(trim($optB)) === $cleanAns) { $correctOpt = 'b'; $hasKeyFromPdf = true; }
-            elseif ($optC && strtolower(trim($optC)) === $cleanAns) { $correctOpt = 'c'; $hasKeyFromPdf = true; }
-            elseif ($optD && strtolower(trim($optD)) === $cleanAns) { $correctOpt = 'd'; $hasKeyFromPdf = true; }
-        }
-
-        $isDefaultKey = false;
-        if ($type === 'multiple_choice') {
-            if (!in_array($correctOpt, ['a', 'b', 'c', 'd'])) {
-                $correctOpt = 'a';
-                $isDefaultKey = true;
+            // 1. Pembahasan / Penjelasan (OPSIONAL - Tidak wajib ada)
+            if (preg_match('/^(?:Pembahasan|Penjelasan|Keterangan|Explanation|Solusi)\s*:\s*(.*)$/i', $trimmed, $m)) {
+                $currentSection = 'explanation';
+                if (!empty($m[1])) $explanationLines[] = trim($m[1]);
+                continue;
             }
 
-            if ($isDefaultKey && !$hasKeyFromPdf) {
-                $note = "[⚠️ KUNCI DEFAULT: Tidak ada kunci jawaban pada file PDF]";
-                $explanation = $explanation ? $explanation . "\n" . $note : $note;
+            if ($currentSection === 'explanation') {
+                $explanationLines[] = $trimmed;
+                continue;
+            }
+
+            // 2. Kunci Jawaban (OPSIONAL - Jika tidak ada, default otomatis)
+            if (preg_match('/^(?:Kunci\s*Jawaban|Kunci|Jawaban\s*Benar|Jawaban|Jwb|Key|Ans)\s*:?\s*(?:Benar\s*)?(.*)$/i', $trimmed, $m)) {
+                $rawKey = trim($m[1]);
+                if (preg_match_all('/[a-eA-E]/', $rawKey, $km)) {
+                    $letters = array_unique(array_map('strtolower', $km[0]));
+                    if (count($letters) > 1) {
+                        $correctKey = implode(',', $letters);
+                        if (!$type) $type = 'multiple_select';
+                    } elseif (count($letters) === 1) {
+                        $correctKey = $letters[0];
+                    }
+                } else {
+                    $correctKey = $rawKey;
+                }
+                $currentSection = 'after_key';
+                continue;
+            }
+
+            // 3. Metadata Diagnostik (Error, Diagnosis, Treatment) (OPSIONAL)
+            if (preg_match('/^Error\s+([A-Da-d])\s*:\s*(.*)$/i', $trimmed, $m)) {
+                $currentSection = 'error';
+                $currentDiagnosticOpt = strtolower($m[1]);
+                $wrongAnswerData[$currentDiagnosticOpt]['error_pattern'] = trim($m[2]);
+                continue;
+            }
+            if (preg_match('/^Diagnosis\s+([A-Da-d])\s*:\s*(.*)$/i', $trimmed, $m)) {
+                $currentSection = 'diagnosis';
+                $currentDiagnosticOpt = strtolower($m[1]);
+                $wrongAnswerData[$currentDiagnosticOpt]['diagnosis'] = trim($m[2]);
+                continue;
+            }
+            if (preg_match('/^Treatment\s+([A-Da-d])\s*:\s*(.*)$/i', $trimmed, $m)) {
+                $currentSection = 'treatment';
+                $currentDiagnosticOpt = strtolower($m[1]);
+                $wrongAnswerData[$currentDiagnosticOpt]['treatment'] = trim($m[2]);
+                continue;
+            }
+
+            if ($currentSection === 'error' && $currentDiagnosticOpt) {
+                $wrongAnswerData[$currentDiagnosticOpt]['error_pattern'] .= ' ' . $trimmed;
+                continue;
+            }
+            if ($currentSection === 'diagnosis' && $currentDiagnosticOpt) {
+                $wrongAnswerData[$currentDiagnosticOpt]['diagnosis'] .= ' ' . $trimmed;
+                continue;
+            }
+            if ($currentSection === 'treatment' && $currentDiagnosticOpt) {
+                $wrongAnswerData[$currentDiagnosticOpt]['treatment'] .= ' ' . $trimmed;
+                continue;
+            }
+
+            // 4. Metadata Soal (Materi, Indikator, Level, Bobot, Tipe) (SEMUANYA OPSIONAL)
+            if (preg_match('/^Materi\s*:\s*(.*)$/i', $trimmed, $m)) {
+                $currentSection = 'materi';
+                if (!empty($m[1])) $materiLines[] = trim($m[1]);
+                continue;
+            }
+            if (preg_match('/^Indikator(?:\s*Soal)?\s*:\s*(.*)$/i', $trimmed, $m)) {
+                $currentSection = 'indikator';
+                if (!empty($m[1])) $indikatorLines[] = trim($m[1]);
+                continue;
+            }
+            if ($currentSection === 'materi') {
+                if (!preg_match('/^(?:Indikator|Level|Bobot|Tipe|[a-eA-E][\.\)])/i', $trimmed)) {
+                    $materiLines[] = $trimmed;
+                    continue;
+                }
+            }
+            if ($currentSection === 'indikator') {
+                if (!preg_match('/^(?:Materi|Level|Bobot|Tipe|[a-eA-E][\.\)])/i', $trimmed)) {
+                    $indikatorLines[] = $trimmed;
+                    continue;
+                }
+            }
+
+            if (preg_match('/^(?:Level|Cognitive Level|Tingkat)\s*:\s*(C[1-6]|Mudah|Sedang|Sukar|Sulit)\b/i', $trimmed, $m)) {
+                $cognitiveLevel = strtoupper(trim($m[1]));
+                $currentSection = 'metadata';
+                continue;
+            }
+
+            if (preg_match('/^(?:Bobot|Poin|Skor)\s*:\s*(\d+)/i', $trimmed, $m)) {
+                $bobot = (int)$m[1];
+                $currentSection = 'metadata';
+                continue;
+            }
+
+            if (preg_match('/^(?:Tipe|Type)\s*:\s*(multiple_choice|matching|ordering|true_false_table|multiple_select|pilihan_ganda|menjodohkan|urutan|benar_salah|kompleks)\b/i', $trimmed, $m)) {
+                $rawType = strtolower(trim($m[1]));
+                if (in_array($rawType, ['multiple_choice', 'pilihan_ganda'])) $type = 'multiple_choice';
+                elseif (in_array($rawType, ['matching', 'menjodohkan'])) $type = 'matching';
+                elseif (in_array($rawType, ['ordering', 'urutan'])) $type = 'ordering';
+                elseif (in_array($rawType, ['true_false_table', 'benar_salah'])) $type = 'true_false_table';
+                elseif (in_array($rawType, ['multiple_select', 'kompleks'])) $type = 'multiple_select';
+                $currentSection = 'metadata';
+                continue;
+            }
+
+            // 5. Deteksi Baris True/False Table (Benar/Salah)
+            if (preg_match('/^(?:[a-zA-Z0-9][\.\)]\s*)?(.+?)\s*(?:=>|➔|->|=)\s*(Benar|Salah|True|False)\b/i', $trimmed, $tm)) {
+                if (!$type) $type = 'true_false_table';
+                $pairData[] = [
+                    'statement' => trim($tm[1]),
+                    'answer' => (strtolower($tm[2]) === 'benar' || strtolower($tm[2]) === 'true') ? 'benar' : 'salah',
+                ];
+                $currentSection = 'tft_row';
+                continue;
+            }
+
+            // 6. Deteksi Baris Menjodohkan (Matching)
+            if (($type === 'matching' || str_contains($trimmed, '=>') || str_contains($trimmed, '➔')) && preg_match('/^(.+?)\s*(?:=>|➔|->|=)\s*(.+)$/', $trimmed, $mm)) {
+                if (!$type) $type = 'matching';
+                $pairData[] = [
+                    'left' => trim(preg_replace('/^[a-eA-E0-9][\.\)]\s*/', '', $mm[1])),
+                    'right' => trim($mm[2]),
+                ];
+                $currentSection = 'matching_row';
+                continue;
+            }
+
+            // 7. Deteksi Baris Susun Urutan (Ordering)
+            if ($type === 'ordering' && preg_match('/^\d+[\.\)]\s*(.+)$/', $trimmed, $om)) {
+                $sequenceData[] = trim($om[1]);
+                $currentSection = 'ordering_row';
+                continue;
+            }
+
+            // 8. Deteksi Pilihan Ganda (A., B., C., D. atau a., b., c., d. atau (A), (B))
+            if (preg_match('/^(?:\(?([a-eA-E])[\.\)]|\(([a-eA-E])\))[ \t]+(.*)$/u', $trimmed, $om)) {
+                $optLetter = strtolower(!empty($om[1]) ? $om[1] : $om[2]);
+                $optVal = trim($om[3]);
+
+                // Deteksi jika beberapa opsi ada dalam SATU baris sekaligus (misal: "A. 112   B. 109   C. 107   D. 105")
+                $inlinePattern = '/(?:\s{2,}|\s+)(?:\(?([b-eB-E])[\.\)]|\(([b-eB-E])\))[ \t]+/u';
+                if (preg_match_all($inlinePattern, $trimmed, $inlineMatches, PREG_OFFSET_CAPTURE)) {
+                    $lastLetter = $optLetter;
+                    $lastOffset = 0;
+
+                    foreach ($inlineMatches[0] as $idx => $mBlock) {
+                        $matchOffset = $mBlock[1];
+                        $letter = strtolower(!empty($inlineMatches[1][$idx][0]) ? $inlineMatches[1][$idx][0] : $inlineMatches[2][$idx][0]);
+                        
+                        if ($idx === 0) {
+                            preg_match('/^(?:\(?([a-eA-E])[\.\)]|\(([a-eA-E])\))[ \t]+/u', $trimmed, $firstMarker);
+                            $start = strlen($firstMarker[0]);
+                            $val = trim(substr($trimmed, $start, $matchOffset - $start));
+                        } else {
+                            $val = trim(substr($trimmed, $lastOffset, $matchOffset - $lastOffset));
+                        }
+                        if (array_key_exists($lastLetter, $options)) {
+                            $options[$lastLetter] = $val;
+                        }
+
+                        $lastLetter = $letter;
+                        $lastOffset = $matchOffset + strlen($mBlock[0]);
+                    }
+                    if (array_key_exists($lastLetter, $options)) {
+                        $options[$lastLetter] = trim(substr($trimmed, $lastOffset));
+                    }
+                    $currentSection = 'options';
+                    $currentOpt = $lastLetter;
+                    continue;
+                }
+
+                // Opsi baris tunggal
+                if (array_key_exists($optLetter, $options)) {
+                    $options[$optLetter] = $optVal;
+                }
+                $currentSection = 'option_' . $optLetter;
+                $currentOpt = $optLetter;
+                continue;
+            }
+
+            // Jika baris ini merupakan kelanjutan teks opsi pilihan ganda
+            if (str_starts_with($currentSection, 'option_') && $currentOpt) {
+                if (array_key_exists($currentOpt, $options)) {
+                    $options[$currentOpt] .= ' ' . $trimmed;
+                }
+                continue;
+            }
+
+            // Baris lainnya adalah teks pertanyaan (soal)
+            $questionLines[] = $trimmed;
+        }
+
+        // Tentukan tipe otomatis jika belum diset
+        if (!$type) {
+            if (!empty($pairData)) {
+                $type = isset($pairData[0]['statement']) ? 'true_false_table' : 'matching';
+            } elseif (!empty($sequenceData)) {
+                $type = 'ordering';
+            } else {
+                $type = 'multiple_choice';
             }
         }
+
+        // Rakit teks soal dan bersihkan nomor soal di depan
+        $questionText = trim(implode("\n", $questionLines));
+        $questionText = preg_replace('/^(?:Soal\s*(?:No\.?|Nomor)?\s*|No\.?\s*)?\d+[\.\:\)]\s*/i', '', $questionText);
+        $questionText = trim($questionText);
+
+        if (empty($questionText)) {
+            $questionText = !empty($options['a']) ? 'Soal Pilihan Ganda' : 'Soal Ujian';
+        }
+
+        // Cocokkan teks kunci jika berupa isi jawaban
+        if ($correctKey && !in_array(strtolower($correctKey), ['a', 'b', 'c', 'd', 'e'])) {
+            $cleanKey = strtolower(trim($correctKey));
+            foreach (['a', 'b', 'c', 'd'] as $k) {
+                if (!empty($options[$k]) && strtolower(trim($options[$k])) === $cleanKey) {
+                    $correctKey = $k;
+                    break;
+                }
+            }
+            if (!in_array(strtolower($correctKey), ['a', 'b', 'c', 'd'])) {
+                $correctKey = 'a';
+            }
+        } else {
+            $correctKey = strtolower($correctKey ?: 'a');
+        }
+
+        if ($type === 'multiple_select') {
+            if (str_contains($correctKey, ',')) {
+                $sequenceData = array_map('trim', explode(',', $correctKey));
+            } else {
+                $sequenceData = [$correctKey];
+            }
+        }
+
+        // Validasi opsi pilihan ganda / kompleks agar tidak pernah bernilai kosong di database
+        if (in_array($type, ['multiple_choice', 'multiple_select'])) {
+            if (empty($options['a']) && empty($options['b'])) {
+                $qLines = array_values(array_filter($questionLines));
+                if (count($qLines) >= 3) {
+                    $questionText = $qLines[0];
+                    $options['a'] = $qLines[1];
+                    $options['b'] = $qLines[2];
+                    $options['c'] = $qLines[3] ?? 'Pilihan C';
+                    $options['d'] = $qLines[4] ?? 'Pilihan D';
+                } else {
+                    $options['a'] = 'Pilihan A';
+                    $options['b'] = 'Pilihan B';
+                    $options['c'] = 'Pilihan C';
+                    $options['d'] = 'Pilihan D';
+                }
+            } else {
+                if (empty($options['a'])) $options['a'] = 'Pilihan A';
+                if (empty($options['b'])) $options['b'] = 'Pilihan B';
+                if (empty($options['c'])) $options['c'] = 'Pilihan C';
+            }
+        }
+
+        $explanation = !empty($explanationLines) ? trim(implode("\n", $explanationLines)) : null;
+        $materi = !empty($materiLines) ? trim(implode(' ', $materiLines)) : null;
+        $indikator = !empty($indikatorLines) ? trim(implode(' ', $indikatorLines)) : null;
 
         return [
-            'question_text' => trim($questionText) ?: 'Soal Ujian',
+            'question_text' => $questionText,
             'materi' => $materi,
             'indikator' => $indikator,
-            'cognitive_level' => $cognitive_level,
+            'cognitive_level' => $cognitiveLevel,
             'bobot' => $bobot,
             'type' => $type,
-            'option_a' => $type === 'multiple_choice' ? ($optA ?: 'Pilihan A') : null,
-            'option_b' => $type === 'multiple_choice' ? ($optB ?: 'Pilihan B') : null,
-            'option_c' => $type === 'multiple_choice' ? ($optC ?: 'Pilihan C') : null,
-            'option_d' => $type === 'multiple_choice' ? ($optD ?: 'Pilihan D') : null,
-            'correct_option' => $type === 'multiple_choice' ? $correctOpt : null,
-            'explanation' => $explanation ?: null,
-            'pair_data' => $type === 'matching' ? (empty($pairData) ? null : $pairData) : null,
-            'sequence_data' => $type === 'ordering' ? (empty($sequenceData) ? null : $sequenceData) : null,
+            'option_a' => in_array($type, ['multiple_choice', 'multiple_select']) ? $options['a'] : null,
+            'option_b' => in_array($type, ['multiple_choice', 'multiple_select']) ? $options['b'] : null,
+            'option_c' => in_array($type, ['multiple_choice', 'multiple_select']) ? $options['c'] : null,
+            'option_d' => in_array($type, ['multiple_choice', 'multiple_select']) ? $options['d'] : null,
+            'correct_option' => $type === 'multiple_choice' ? $correctKey : ($type === 'multiple_select' ? (is_array($correctKey) ? implode(',', $correctKey) : $correctKey) : null),
+            'explanation' => $explanation,
+            'pair_data' => in_array($type, ['matching', 'true_false_table']) ? (empty($pairData) ? null : $pairData) : null,
+            'sequence_data' => in_array($type, ['ordering', 'multiple_select']) ? (empty($sequenceData) ? null : $sequenceData) : null,
             'wrong_answer_data' => $type === 'multiple_choice' ? (empty($wrongAnswerData) ? null : $wrongAnswerData) : null,
         ];
     }

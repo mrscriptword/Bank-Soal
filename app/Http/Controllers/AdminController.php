@@ -21,22 +21,20 @@ class AdminController extends Controller
             ->latest()
             ->paginate(50);
 
-        // ✅ Cache role counts 3 menit — data ini jarang berubah
-        $roleCounts = Cache::driver('file')->remember('admin_user_role_counts', 180, function () {
-            return User::selectRaw("
-                SUM(CASE WHEN role = 'murid' THEN 1 ELSE 0 END) as murid_count,
-                SUM(CASE WHEN role = 'guru'  THEN 1 ELSE 0 END) as guru_count,
-                SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) as admin_count
-            ")->first();
-        });
+        // Hitung jumlah masing-masing role langsung dari database
+        // (Menghindari error __PHP_Incomplete_Class saat unserialize Eloquent Model pada cache file)
+        $roleCounts = User::selectRaw("
+            SUM(CASE WHEN role = 'murid' THEN 1 ELSE 0 END) as murid_count,
+            SUM(CASE WHEN role = 'guru'  THEN 1 ELSE 0 END) as guru_count,
+            SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) as admin_count
+        ")->first();
 
         $totalStudents = (int) ($roleCounts->murid_count ?? 0);
         $totalTeachers = (int) ($roleCounts->guru_count  ?? 0);
         $totalAdmins   = (int) ($roleCounts->admin_count ?? 0);
 
         // Ambil subjects & exams langsung dari database (menghindari incomplete object saat unserialize)
-        $subjects = Subject::select('id', 'title', 'code', 'icon', 'teacher_id')
-            ->with('teacher:id,name')
+        $subjects = Subject::select('id', 'title', 'code', 'icon')
             ->get();
 
         $exams = Exam::select('id', 'subject_id', 'title', 'grade_level', 'status', 'created_by', 'created_at')
@@ -80,9 +78,6 @@ class AdminController extends Controller
             'grade_level' => $request->grade_level ?: 'SMP Kelas 7',
         ]);
 
-        // ✅ Invalidasi cache role counts
-        Cache::driver('file')->forget('admin_user_role_counts');
-
         return redirect()->route('admin.dashboard')->with('success', 'Pengguna baru berhasil ditambahkan!');
     }
 
@@ -94,9 +89,6 @@ class AdminController extends Controller
 
         $user->delete();
 
-        // ✅ Invalidasi cache role counts setelah hapus user
-        Cache::driver('file')->forget('admin_user_role_counts');
-
         return redirect()->route('admin.dashboard')->with('success', 'Pengguna berhasil dihapus.');
     }
 
@@ -106,17 +98,22 @@ class AdminController extends Controller
             'title' => 'required|string|max:255',
             'code' => 'required|string|unique:subjects,code',
             'description' => 'nullable|string',
-            'teacher_id' => 'nullable|exists:users,id',
         ]);
 
         Subject::create([
             'title' => $request->title,
             'code' => strtoupper($request->code),
             'description' => $request->description,
-            'teacher_id' => $request->teacher_id,
         ]);
 
         return redirect()->route('admin.dashboard')->with('success', 'Mata Pelajaran berhasil ditambahkan!');
+    }
+
+    public function destroySubject(Subject $subject)
+    {
+        $subject->delete();
+
+        return redirect()->route('admin.dashboard')->with('success', 'Mata Pelajaran berhasil dihapus!');
     }
 
     /**

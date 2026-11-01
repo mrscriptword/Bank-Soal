@@ -74,6 +74,14 @@ class StudentExamController extends Controller
             $q->select('id', 'exam_id', 'type', 'question_text', 'image', 'option_a', 'option_b', 'option_c', 'option_d', 'pair_data', 'sequence_data');
         }]);
 
+        if ($exam->questions->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ujian "' . $exam->title . '" belum memiliki butir soal yang aktif. Silakan hubungi guru pengampu.',
+                'exam' => $exam,
+            ]);
+        }
+
         // Prepare randomized items for student UI
         $exam->questions->transform(function ($question) {
             if ($question->image) {
@@ -107,6 +115,25 @@ class StudentExamController extends Controller
             return $question;
         });
 
+        // Catat status pengerjaan siswa sebagai 'in_progress' jika siswa login
+        if (Auth::check()) {
+            $user = Auth::user();
+            if ($user->role === 'murid') {
+                ExamAttempt::firstOrCreate(
+                    [
+                        'user_id' => $user->id,
+                        'exam_id' => $exam->id,
+                        'status'  => 'in_progress',
+                    ],
+                    [
+                        'total_questions'    => $exam->questions->count(),
+                        'time_taken_seconds' => 0,
+                        'started_at'         => now(),
+                    ]
+                );
+            }
+        }
+
         return response()->json([
             'success' => true,
             'exam' => $exam,
@@ -129,15 +156,33 @@ class StudentExamController extends Controller
         $totalQuestions = $exam->questions->count();
         $correctCount = 0;
 
-        $attempt = ExamAttempt::create([
-            'user_id' => $user ? $user->id : 1,
-            'exam_id' => $exam->id,
-            'total_questions' => $totalQuestions,
-            'time_taken_seconds' => $timeTaken,
-            'status' => 'completed',
-            'started_at' => now()->subSeconds($timeTaken),
-            'completed_at' => now(),
-        ]);
+        $attempt = null;
+        if ($user) {
+            $attempt = ExamAttempt::where('user_id', $user->id)
+                ->where('exam_id', $exam->id)
+                ->where('status', 'in_progress')
+                ->latest()
+                ->first();
+        }
+
+        if ($attempt) {
+            $attempt->update([
+                'total_questions'    => $totalQuestions,
+                'time_taken_seconds' => $timeTaken,
+                'status'             => 'completed',
+                'completed_at'       => now(),
+            ]);
+        } else {
+            $attempt = ExamAttempt::create([
+                'user_id'            => $user ? $user->id : 1,
+                'exam_id'            => $exam->id,
+                'total_questions'    => $totalQuestions,
+                'time_taken_seconds' => $timeTaken,
+                'status'             => 'completed',
+                'started_at'         => now()->subSeconds($timeTaken),
+                'completed_at'       => now(),
+            ]);
+        }
 
         $reviewItems = [];
 

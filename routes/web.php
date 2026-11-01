@@ -43,4 +43,5 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/admin/users/template-download', [AdminController::class, 'downloadTemplate'])->name('admin.users.template');
     Route::delete('/admin/users/{user}', [AdminController::class, 'destroyUser'])->name('admin.users.destroy');
     Route::post('/admin/subjects', [AdminController::class, 'storeSubject'])->name('admin.subjects.store');
+    Route::delete('/admin/subjects/{subject}', [AdminController::class, 'destroySubject'])->name('admin.subjects.destroy');
 });

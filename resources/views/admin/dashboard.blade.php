@@ -142,24 +142,39 @@
 
         <!-- Subject Management Column (1 Col) -->
         <div class="space-y-4 bg-white dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 p-6 rounded-3xl shadow-sm">
-            <h2 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                Daftar Pelajaran
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white flex items-center justify-between">
+                <span class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                    Daftar Pelajaran
+                </span>
+                <span class="text-xs font-normal text-slate-500 dark:text-zinc-400">Total: {{ $subjects->count() }} Mapel</span>
             </h2>
 
             <div class="space-y-3">
-                @foreach($subjects as $subj)
+                @forelse($subjects as $subj)
                     <div class="bg-slate-50 dark:bg-[#141416] border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2 text-xs">
-                        <div class="flex items-center justify-between">
+                        <div class="flex items-center justify-between gap-2">
                             <span class="font-bold text-slate-900 dark:text-white text-sm">{{ $subj->title }}</span>
-                            <span class="px-2 py-0.5 bg-slate-200 dark:bg-zinc-800 text-blue-600 dark:text-blue-400 font-mono font-bold rounded">{{ $subj->code }}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 bg-slate-200 dark:bg-zinc-800 text-blue-600 dark:text-blue-400 font-mono font-bold rounded">{{ $subj->code }}</span>
+                                <form action="{{ route('admin.subjects.destroy', $subj->id) }}" method="POST" class="inline" onsubmit="return confirm('Hapus mata pelajaran ini?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-rose-600 dark:text-rose-400 hover:text-rose-700 font-semibold bg-rose-50 dark:bg-rose-950/50 px-2 py-1 rounded border border-rose-200 dark:border-rose-900/50 transition">
+                                        Hapus
+                                    </button>
+                                </form>
+                            </div>
                         </div>
-                        <p class="text-slate-600 dark:text-zinc-400">{{ $subj->description }}</p>
-                        <div class="pt-2 border-t border-slate-200 dark:border-zinc-800/80 text-[11px] text-slate-500 dark:text-zinc-500">
-                            Pengajar: <span class="text-slate-800 dark:text-zinc-300 font-semibold">{{ $subj->teacher->name ?? 'Belum Ditentukan' }}</span>
-                        </div>
+                        @if($subj->description)
+                            <p class="text-slate-600 dark:text-zinc-400">{{ $subj->description }}</p>
+                        @endif
                     </div>
-                @endforeach
+                @empty
+                    <div class="text-center py-6 text-slate-400 dark:text-zinc-500 text-xs">
+                        Belum ada mata pelajaran.
+                    </div>
+                @endforelse
             </div>
         </div>
 
@@ -208,8 +223,10 @@
                     <select name="grade_level" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
                         <option value="SD Kelas 4">SD Kelas 4</option>
                         <option value="SD Kelas 5">SD Kelas 5</option>
+                        <option value="SD Kelas 6">SD Kelas 6</option>
                         <option value="SMP Kelas 7">SMP Kelas 7</option>
                         <option value="SMP Kelas 8">SMP Kelas 8</option>
+                        <option value="SMP Kelas 9">SMP Kelas 9</option>
                         <option value="ALL">ALL (Semua Jenjang)</option>
                     </select>
                 </div>
@@ -234,20 +251,9 @@
                 <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Nama Pelajaran</label>
                 <input type="text" name="title" required placeholder="Contoh: Fisika Terapan" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
             </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-1">
-                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Kode Pelajaran</label>
-                    <input type="text" name="code" required placeholder="FSK" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Guru Pengampu</label>
-                    <select name="teacher_id" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
-                        <option value="">- Pilih Guru -</option>
-                        @foreach($users->where('role', 'guru') as $g)
-                            <option value="{{ $g->id }}">{{ $g->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
+            <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Kode Pelajaran</label>
+                <input type="text" name="code" required placeholder="FSK" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
             </div>
             <div class="space-y-1">
                 <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Deskripsi Ringkas</label>
@@ -312,8 +318,10 @@
                     <select name="default_grade" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white">
                         <option value="SMP Kelas 7">SMP Kelas 7</option>
                         <option value="SMP Kelas 8">SMP Kelas 8</option>
+                        <option value="SMP Kelas 9">SMP Kelas 9</option>
                         <option value="SD Kelas 4">SD Kelas 4</option>
                         <option value="SD Kelas 5">SD Kelas 5</option>
+                        <option value="SD Kelas 6">SD Kelas 6</option>
                         <option value="ALL">ALL (Semua Jenjang)</option>
                     </select>
                 </div>

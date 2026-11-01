@@ -48,300 +48,346 @@ class CbtSeeder extends Seeder
         );
 
         // 2. Create Subjects
-        $mtk = Subject::create([
-            'title' => 'Matematika',
-            'code' => 'MTK',
-            'description' => 'Pelatihan logika, aritmatika, dan geometri.',
-            'icon' => 'calculator',
-            'teacher_id' => $guru->id,
-        ]);
+        $mtk = Subject::firstOrCreate(
+            ['code' => 'MTK'],
+            [
+                'title' => 'Matematika',
+                'description' => 'Pelatihan logika, aritmatika, dan geometri.',
+                'icon' => 'calculator',
+                'teacher_id' => $guru->id,
+            ]
+        );
 
-        $bin = Subject::create([
-            'title' => 'Bahasa Indonesia',
-            'code' => 'BIN',
-            'description' => 'Pemahaman bacaan, ejaan, dan tata bahasa.',
-            'icon' => 'book-open',
-            'teacher_id' => $guru->id,
-        ]);
+        $bin = Subject::firstOrCreate(
+            ['code' => 'BIN'],
+            [
+                'title' => 'Bahasa Indonesia',
+                'description' => 'Pemahaman bacaan, ejaan, dan tata bahasa.',
+                'icon' => 'book-open',
+                'teacher_id' => $guru->id,
+            ]
+        );
 
-        $ipa = Subject::create([
-            'title' => 'IPA',
-            'code' => 'IPA',
-            'description' => 'Ilmu Pengetahuan Alam, Fisika & Biologi dasar.',
-            'icon' => 'atom',
-            'teacher_id' => $guru->id,
-        ]);
+        $ipa = Subject::firstOrCreate(
+            ['code' => 'IPA'],
+            [
+                'title' => 'IPA',
+                'description' => 'Ilmu Pengetahuan Alam, Fisika & Biologi dasar.',
+                'icon' => 'atom',
+                'teacher_id' => $guru->id,
+            ]
+        );
 
         // 3. Create Exam for Matematika
-        $examMtk = Exam::create([
-            'subject_id' => $mtk->id,
-            'title' => 'Simulasi Matematika Dasar',
-            'duration_minutes' => 15,
-            'total_questions' => 10,
-            'passing_score' => 70,
-            'grade_level' => 'SD Kelas 4',
-            'created_by' => $guru->id,
-            'status' => 'active',
-        ]);
-
-        // Soal 1 (sesuai screenshot referensi)
-        Question::create([
-            'exam_id' => $examMtk->id,
-            'question_text' => 'Sebuah persegi panjang memiliki panjang 12 cm dan lebar 7 cm. Berapa luasnya?',
-            'option_a' => '84 cm²',
-            'option_b' => '19 cm²',
-            'option_c' => '38 cm²',
-            'option_d' => '96 cm²',
-            'correct_option' => 'a',
-            'explanation' => 'Luas persegi panjang dihitung dengan rumus L = p × l. Diketahui panjang (p) = 12 cm dan lebar (l) = 7 cm. Maka Luas = 12 cm × 7 cm = 84 cm².',
-        ]);
-
-        Question::create([
-            'exam_id' => $examMtk->id,
-            'question_text' => 'Berapakah hasil perhitungan dari 15 × 8 - 20?',
-            'option_a' => '100',
-            'option_b' => '110',
-            'option_c' => '120',
-            'option_d' => '105',
-            'correct_option' => 'a',
-            'explanation' => 'Dahulukan operasi perkalian: 15 × 8 = 120. Kemudian kurangi 20: 120 - 20 = 100.',
-        ]);
-
-        Question::create([
-            'exam_id' => $examMtk->id,
-            'question_text' => 'Sebuah lingkaran memiliki jari-jari 7 cm. Berapakah keliling lingkaran tersebut? (Gunakan π = 22/7)',
-            'option_a' => '44 cm',
-            'option_b' => '154 cm',
-            'option_c' => '22 cm',
-            'option_d' => '88 cm',
-            'correct_option' => 'a',
-            'explanation' => 'Rumus keliling lingkaran K = 2 × π × r. K = 2 × (22/7) × 7 = 44 cm.',
-        ]);
-
-        Question::create([
-            'exam_id' => $examMtk->id,
-            'question_text' => 'Jika 3x + 5 = 20, berapakah nilai x?',
-            'option_a' => '5',
-            'option_b' => '4',
-            'option_c' => '6',
-            'option_d' => '3',
-            'correct_option' => 'a',
-            'explanation' => '3x = 20 - 5 => 3x = 15 => x = 15 / 3 = 5.',
-        ]);
-
-        Question::create([
-            'exam_id' => $examMtk->id,
-            'question_text' => 'Berapa FPB dari 24 dan 36?',
-            'option_a' => '12',
-            'option_b' => '6',
-            'option_c' => '72',
-            'option_d' => '4',
-            'correct_option' => 'a',
-            'explanation' => 'Faktor 24: 1, 2, 3, 4, 6, 8, 12, 24. Faktor 36: 1, 2, 3, 4, 6, 9, 12, 18, 36. FPB terbesar adalah 12.',
-        ]);
-
-        Question::create([
-            'exam_id' => $examMtk->id,
-            'question_text' => 'Berapa luas segitiga dengan alas 10 cm dan tinggi 14 cm?',
-            'option_a' => '70 cm²',
-            'option_b' => '140 cm²',
-            'option_c' => '35 cm²',
-            'option_d' => '24 cm²',
-            'correct_option' => 'a',
-            'explanation' => 'Luas segitiga = ½ × alas × tinggi = ½ × 10 × 14 = 70 cm².',
-        ]);
-
-        Question::create([
-            'exam_id' => $examMtk->id,
-            'question_text' => 'Bentuk persen dari pecahan 3/5 adalah...',
-            'option_a' => '60%',
-            'option_b' => '30%',
-            'option_c' => '50%',
-            'option_d' => '75%',
-            'correct_option' => 'a',
-            'explanation' => '3/5 × 100% = 300 / 5 = 60%.',
-        ]);
-
-        Question::create([
-            'exam_id' => $examMtk->id,
-            'question_text' => 'Sebuah kubus memiliki panjang rusuk 5 cm. Berapa volume kubus tersebut?',
-            'option_a' => '125 cm³',
-            'option_b' => '25 cm³',
-            'option_c' => '150 cm³',
-            'option_d' => '100 cm³',
-            'correct_option' => 'a',
-            'explanation' => 'Volume kubus = s³ = 5 × 5 × 5 = 125 cm³.',
-        ]);
-
-        Question::create([
-            'exam_id' => $examMtk->id,
-            'question_text' => 'Jika sebuah mobil menempuh jarak 120 km dalam waktu 2 jam, berapakah kecepatan rata-rata mobil tersebut?',
-            'option_a' => '60 km/jam',
-            'option_b' => '80 km/jam',
-            'option_c' => '50 km/jam',
-            'option_d' => '240 km/jam',
-            'correct_option' => 'a',
-            'explanation' => 'Kecepatan v = s / t = 120 km / 2 jam = 60 km/jam.',
-        ]);
-
-        // Soal 11 (Gamifikasi: Pasangan / Menjodohkan Rumus Bangun Datar)
-        Question::create([
-            'exam_id' => $examMtk->id,
-            'type' => 'matching',
-            'question_text' => 'Jodohkan nama bangun datar di sebelah kiri dengan rumus luasnya yang tepat di sebelah kanan!',
-            'pair_data' => [
-                ['left' => 'Persegi', 'right' => 's × s'],
-                ['left' => 'Segitiga', 'right' => '½ × a × t'],
-                ['left' => 'Lingkaran', 'right' => 'π × r²'],
-                ['left' => 'Persegi Panjang', 'right' => 'p × l'],
+        $examMtk = Exam::firstOrCreate(
+            [
+                'subject_id' => $mtk->id,
+                'title' => 'Simulasi Matematika Dasar',
+                'grade_level' => 'SD Kelas 4',
             ],
-            'explanation' => 'Rumus luas bangun datar: Persegi (s x s), Segitiga (1/2 x a x t), Lingkaran (π x r²), Persegi Panjang (p x l).',
-        ]);
+            [
+                'duration_minutes' => 15,
+                'total_questions' => 12,
+                'passing_score' => 70,
+                'created_by' => $guru->id,
+                'status' => 'active',
+                'allow_repeat' => true,
+            ]
+        );
 
-        // Soal 12 (Gamifikasi: Susun Urutan Bilangan)
-        Question::create([
-            'exam_id' => $examMtk->id,
-            'type' => 'ordering',
-            'question_text' => 'Susunlah bilangan-bilangan di bawah ini mulai dari nilai terkecil hingga terbesar!',
-            'sequence_data' => [
-                '-15',
-                '-7',
-                '0',
-                '8',
-                '23',
+        $mtkQuestions = [
+            [
+                'question_text' => 'Sebuah persegi panjang memiliki panjang 12 cm dan lebar 7 cm. Berapa luasnya?',
+                'option_a' => '84 cm²',
+                'option_b' => '19 cm²',
+                'option_c' => '38 cm²',
+                'option_d' => '96 cm²',
+                'correct_option' => 'a',
+                'explanation' => 'Luas persegi panjang dihitung dengan rumus L = p × l. Diketahui panjang (p) = 12 cm dan lebar (l) = 7 cm. Maka Luas = 12 cm × 7 cm = 84 cm².',
             ],
-            'explanation' => 'Urutan dari terkecil ke terbesar pada garis bilangan adalah: -15, -7, 0, 8, 23.',
-        ]);
+            [
+                'question_text' => 'Berapakah hasil perhitungan dari 15 × 8 - 20?',
+                'option_a' => '100',
+                'option_b' => '110',
+                'option_c' => '120',
+                'option_d' => '105',
+                'correct_option' => 'a',
+                'explanation' => 'Dahulukan operasi perkalian: 15 × 8 = 120. Kemudian kurangi 20: 120 - 20 = 100.',
+            ],
+            [
+                'question_text' => 'Sebuah lingkaran memiliki jari-jari 7 cm. Berapakah keliling lingkaran tersebut? (Gunakan π = 22/7)',
+                'option_a' => '44 cm',
+                'option_b' => '154 cm',
+                'option_c' => '22 cm',
+                'option_d' => '88 cm',
+                'correct_option' => 'a',
+                'explanation' => 'Rumus keliling lingkaran K = 2 × π × r. K = 2 × (22/7) × 7 = 44 cm.',
+            ],
+            [
+                'question_text' => 'Jika 3x + 5 = 20, berapakah nilai x?',
+                'option_a' => '5',
+                'option_b' => '4',
+                'option_c' => '6',
+                'option_d' => '3',
+                'correct_option' => 'a',
+                'explanation' => '3x = 20 - 5 => 3x = 15 => x = 15 / 3 = 5.',
+            ],
+            [
+                'question_text' => 'Berapa FPB dari 24 dan 36?',
+                'option_a' => '12',
+                'option_b' => '6',
+                'option_c' => '72',
+                'option_d' => '4',
+                'correct_option' => 'a',
+                'explanation' => 'Faktor 24: 1, 2, 3, 4, 6, 8, 12, 24. Faktor 36: 1, 2, 3, 4, 6, 9, 12, 18, 36. FPB terbesar adalah 12.',
+            ],
+            [
+                'question_text' => 'Berapa luas segitiga dengan alas 10 cm dan tinggi 14 cm?',
+                'option_a' => '70 cm²',
+                'option_b' => '140 cm²',
+                'option_c' => '35 cm²',
+                'option_d' => '24 cm²',
+                'correct_option' => 'a',
+                'explanation' => 'Luas segitiga = ½ × alas × tinggi = ½ × 10 × 14 = 70 cm².',
+            ],
+            [
+                'question_text' => 'Bentuk persen dari pecahan 3/5 adalah...',
+                'option_a' => '60%',
+                'option_b' => '30%',
+                'option_c' => '50%',
+                'option_d' => '75%',
+                'correct_option' => 'a',
+                'explanation' => '3/5 × 100% = 300 / 5 = 60%.',
+            ],
+            [
+                'question_text' => 'Sebuah kubus memiliki panjang rusuk 5 cm. Berapa volume kubus tersebut?',
+                'option_a' => '125 cm³',
+                'option_b' => '25 cm³',
+                'option_c' => '150 cm³',
+                'option_d' => '100 cm³',
+                'correct_option' => 'a',
+                'explanation' => 'Volume kubus = s³ = 5 × 5 × 5 = 125 cm³.',
+            ],
+            [
+                'question_text' => 'Jika sebuah mobil menempuh jarak 120 km dalam waktu 2 jam, berapakah kecepatan rata-rata mobil tersebut?',
+                'option_a' => '60 km/jam',
+                'option_b' => '80 km/jam',
+                'option_c' => '50 km/jam',
+                'option_d' => '240 km/jam',
+                'correct_option' => 'a',
+                'explanation' => 'Kecepatan v = s / t = 120 km / 2 jam = 60 km/jam.',
+            ],
+            [
+                'type' => 'matching',
+                'question_text' => 'Jodohkan nama bangun datar di sebelah kiri dengan rumus luasnya yang tepat di sebelah kanan!',
+                'pair_data' => [
+                    ['left' => 'Persegi', 'right' => 's × s'],
+                    ['left' => 'Segitiga', 'right' => '½ × a × t'],
+                    ['left' => 'Lingkaran', 'right' => 'π × r²'],
+                    ['left' => 'Persegi Panjang', 'right' => 'p × l'],
+                ],
+                'explanation' => 'Rumus luas bangun datar: Persegi (s x s), Segitiga (1/2 x a x t), Lingkaran (π x r²), Persegi Panjang (p x l).',
+            ],
+            [
+                'type' => 'ordering',
+                'question_text' => 'Susunlah bilangan-bilangan di bawah ini mulai dari nilai terkecil hingga terbesar!',
+                'sequence_data' => [
+                    '-15',
+                    '-7',
+                    '0',
+                    '8',
+                    '23',
+                ],
+                'explanation' => 'Urutan dari terkecil ke terbesar pada garis bilangan adalah: -15, -7, 0, 8, 23.',
+            ],
+        ];
 
+        foreach ($mtkQuestions as $qData) {
+            Question::firstOrCreate(
+                [
+                    'exam_id' => $examMtk->id,
+                    'question_text' => $qData['question_text'],
+                ],
+                $qData
+            );
+        }
         $examMtk->update(['total_questions' => $examMtk->questions()->count()]);
 
+        // If existing exam 22 ("Soal TKA", SD Kelas 4) has 0 questions, populate it too!
+        $exam22 = Exam::find(22);
+        if ($exam22 && $exam22->questions()->count() === 0) {
+            foreach ($mtkQuestions as $qData) {
+                Question::firstOrCreate(
+                    [
+                        'exam_id' => $exam22->id,
+                        'question_text' => $qData['question_text'],
+                    ],
+                    $qData
+                );
+            }
+            $exam22->update(['total_questions' => $exam22->questions()->count()]);
+        }
+
         // 4. Create Exam for Bahasa Indonesia
-        $examBin = Exam::create([
-            'subject_id' => $bin->id,
-            'title' => 'Simulasi Bahasa Indonesia',
-            'duration_minutes' => 12,
-            'total_questions' => 4,
-            'passing_score' => 70,
-            'grade_level' => 'SD Kelas 5',
-            'created_by' => $guru->id,
-            'status' => 'active',
-        ]);
-
-        Question::create([
-            'exam_id' => $examBin->id,
-            'type' => 'multiple_choice',
-            'question_text' => 'Manakah di bawah ini yang merupakan kata baku dalam Bahasa Indonesia?',
-            'option_a' => 'Kualitas',
-            'option_b' => 'Kwalitas',
-            'option_c' => 'Kwalitet',
-            'option_d' => 'Kwalitash',
-            'correct_option' => 'a',
-            'explanation' => 'Menurut KBBI, kata yang baku adalah "Kualitas", bukan kwalitas.',
-        ]);
-
-        Question::create([
-            'exam_id' => $examBin->id,
-            'type' => 'multiple_choice',
-            'question_text' => 'Ide pokok dalam suatu paragraf biasanya terletak pada...',
-            'option_a' => 'Kalimat utama',
-            'option_b' => 'Kalimat penjelas',
-            'option_c' => 'Judul teks',
-            'option_d' => 'Kesimpulan akhir',
-            'correct_option' => 'a',
-            'explanation' => 'Gagasan atau ide pokok terkandung di dalam kalimat utama paragraf.',
-        ]);
-
-        Question::create([
-            'exam_id' => $examBin->id,
-            'type' => 'matching',
-            'question_text' => 'Jodohkan jenis teks paragraf berikut dengan ciri utamanya!',
-            'pair_data' => [
-                ['left' => 'Teks Narasi', 'right' => 'Menceritakan urutan peristiwa/cerita'],
-                ['left' => 'Teks Deskripsi', 'right' => 'Gambarkan objek secara detail panca indera'],
-                ['left' => 'Teks Persuasi', 'right' => 'Mengajak atau membujuk pembaca'],
-                ['left' => 'Teks Eksplanasi', 'right' => 'Menjelaskan proses sebab-akibat fenomena'],
+        $examBin = Exam::firstOrCreate(
+            [
+                'subject_id' => $bin->id,
+                'title' => 'Simulasi Bahasa Indonesia',
+                'grade_level' => 'SD Kelas 5',
             ],
-            'explanation' => 'Teks narasi = cerita; deskripsi = penggambaran; persuasi = ajakan; eksplanasi = penjelasan fenomena.',
-        ]);
+            [
+                'duration_minutes' => 12,
+                'total_questions' => 4,
+                'passing_score' => 70,
+                'created_by' => $guru->id,
+                'status' => 'active',
+                'allow_repeat' => true,
+            ]
+        );
 
-        Question::create([
-            'exam_id' => $examBin->id,
-            'type' => 'ordering',
-            'question_text' => 'Susunlah tahapan menulis karangan teks cerita secara benar!',
-            'sequence_data' => [
-                '1. Menentukan Tema & Judul',
-                '2. Membuat Kerangka Karangan',
-                '3. Mengumpulkan Bahan & Fakta',
-                '4. Mengembangkan Kerangka Karangan',
-                '5. Menyunting & Memeriksa Ejaan',
+        $binQuestions = [
+            [
+                'type' => 'multiple_choice',
+                'question_text' => 'Manakah di bawah ini yang merupakan kata baku dalam Bahasa Indonesia?',
+                'option_a' => 'Kualitas',
+                'option_b' => 'Kwalitas',
+                'option_c' => 'Kwalitet',
+                'option_d' => 'Kwalitash',
+                'correct_option' => 'a',
+                'explanation' => 'Menurut KBBI, kata yang baku adalah "Kualitas", bukan kwalitas.',
             ],
-            'explanation' => 'Urutan tepat menulis cerita: Menentukan Tema -> Kerangka -> Bahan -> Mengembangkan -> Menyunting.',
-        ]);
+            [
+                'type' => 'multiple_choice',
+                'question_text' => 'Ide pokok dalam suatu paragraf biasanya terletak pada...',
+                'option_a' => 'Kalimat utama',
+                'option_b' => 'Kalimat penjelas',
+                'option_c' => 'Judul teks',
+                'option_d' => 'Kesimpulan akhir',
+                'correct_option' => 'a',
+                'explanation' => 'Gagasan atau ide pokok terkandung di dalam kalimat utama paragraf.',
+            ],
+            [
+                'type' => 'matching',
+                'question_text' => 'Jodohkan jenis teks paragraf berikut dengan ciri utamanya!',
+                'pair_data' => [
+                    ['left' => 'Teks Narasi', 'right' => 'Menceritakan urutan peristiwa/cerita'],
+                    ['left' => 'Teks Deskripsi', 'right' => 'Gambarkan objek secara detail panca indera'],
+                    ['left' => 'Teks Persuasi', 'right' => 'Mengajak atau membujuk pembaca'],
+                    ['left' => 'Teks Eksplanasi', 'right' => 'Menjelaskan proses sebab-akibat fenomena'],
+                ],
+                'explanation' => 'Teks narasi = cerita; deskripsi = penggambaran; persuasi = ajakan; eksplanasi = penjelasan fenomena.',
+            ],
+            [
+                'type' => 'ordering',
+                'question_text' => 'Susunlah tahapan menulis karangan teks cerita secara benar!',
+                'sequence_data' => [
+                    '1. Menentukan Tema & Judul',
+                    '2. Membuat Kerangka Karangan',
+                    '3. Mengumpulkan Bahan & Fakta',
+                    '4. Mengembangkan Kerangka Karangan',
+                    '5. Menyunting & Memeriksa Ejaan',
+                ],
+                'explanation' => 'Urutan tepat menulis cerita: Menentukan Tema -> Kerangka -> Bahan -> Mengembangkan -> Menyunting.',
+            ],
+        ];
 
+        foreach ($binQuestions as $qData) {
+            Question::firstOrCreate(
+                [
+                    'exam_id' => $examBin->id,
+                    'question_text' => $qData['question_text'],
+                ],
+                $qData
+            );
+        }
         $examBin->update(['total_questions' => $examBin->questions()->count()]);
 
+        // If existing exam 23 ("Soal TKA", SD Kelas 5) has 0 questions, populate it too!
+        $exam23 = Exam::find(23);
+        if ($exam23 && $exam23->questions()->count() === 0) {
+            foreach ($binQuestions as $qData) {
+                Question::firstOrCreate(
+                    [
+                        'exam_id' => $exam23->id,
+                        'question_text' => $qData['question_text'],
+                    ],
+                    $qData
+                );
+            }
+            $exam23->update(['total_questions' => $exam23->questions()->count()]);
+        }
+
         // 5. Create Exam for IPA
-        $examIpa = Exam::create([
-            'subject_id' => $ipa->id,
-            'title' => 'Simulasi IPA & Fisika Dasar',
-            'duration_minutes' => 15,
-            'total_questions' => 4,
-            'passing_score' => 70,
-            'grade_level' => 'SMP Kelas 7',
-            'created_by' => $guru->id,
-            'status' => 'active',
-        ]);
-
-        Question::create([
-            'exam_id' => $examIpa->id,
-            'type' => 'multiple_choice',
-            'question_text' => 'Proses pembuatan makanan pada tumbuhan hijau dengan bantuan cahaya matahari disebut...',
-            'option_a' => 'Fotosintesis',
-            'option_b' => 'Respirasi',
-            'option_c' => 'Transpirasi',
-            'option_d' => 'Osmosis',
-            'correct_option' => 'a',
-            'explanation' => 'Fotosintesis adalah proses klorofil tumbuhan mengubah air dan CO2 menjadi glukosa dan oksigen dengan bantuan cahaya matahari.',
-        ]);
-
-        Question::create([
-            'exam_id' => $examIpa->id,
-            'type' => 'multiple_choice',
-            'question_text' => 'Organ tubuh manusia yang berfungsi memompa darah ke seluruh tubuh adalah...',
-            'option_a' => 'Jantung',
-            'option_b' => 'Paru-paru',
-            'option_c' => 'Hati',
-            'option_d' => 'Ginjal',
-            'correct_option' => 'a',
-            'explanation' => 'Jantung adalah organ otot utama yang memompa darah beroksigen ke seluruh jaringan tubuh.',
-        ]);
-
-        Question::create([
-            'exam_id' => $examIpa->id,
-            'type' => 'matching',
-            'question_text' => 'Jodohkan organ manusia berikut dengan fungsinya yang sesuai!',
-            'pair_data' => [
-                ['left' => 'Jantung', 'right' => 'Memompa darah ke seluruh tubuh'],
-                ['left' => 'Paru-Paru', 'right' => 'Pertukaran Oksigen dan Karbondioksida'],
-                ['left' => 'Ginjal', 'right' => 'Menyaring sisa metabolisme dari darah'],
-                ['left' => 'Hati', 'right' => 'Menawar racun (detoksifikasi)'],
+        $examIpa = Exam::firstOrCreate(
+            [
+                'subject_id' => $ipa->id,
+                'title' => 'Simulasi IPA & Fisika Dasar',
+                'grade_level' => 'SMP Kelas 7',
             ],
-            'explanation' => 'Fungsi organ: Jantung = pompa darah, Paru-paru = pernapasan, Ginjal = ekskresi darah, Hati = detoksifikasi.',
-        ]);
+            [
+                'duration_minutes' => 15,
+                'total_questions' => 4,
+                'passing_score' => 70,
+                'created_by' => $guru->id,
+                'status' => 'active',
+                'allow_repeat' => true,
+            ]
+        );
 
-        Question::create([
-            'exam_id' => $examIpa->id,
-            'type' => 'ordering',
-            'question_text' => 'Susunlah urutan metamorofosis sempurna (daur hidup) kupu-kupu dari awal hingga menjadi kupu-kupu dewasa!',
-            'sequence_data' => [
-                'Tahap 1: Telur',
-                'Tahap 2: Ulat (Larva)',
-                'Tahap 3: Kepompong (Pupa)',
-                'Tahap 4: Kupu-Kupu Dewasa (Imago)',
+        $ipaQuestions = [
+            [
+                'type' => 'multiple_choice',
+                'question_text' => 'Proses pembuatan makanan pada tumbuhan hijau dengan bantuan cahaya matahari disebut...',
+                'option_a' => 'Fotosintesis',
+                'option_b' => 'Respirasi',
+                'option_c' => 'Transpirasi',
+                'option_d' => 'Osmosis',
+                'correct_option' => 'a',
+                'explanation' => 'Fotosintesis adalah proses klorofil tumbuhan mengubah air dan CO2 menjadi glukosa dan oksigen dengan bantuan cahaya matahari.',
             ],
-            'explanation' => 'Daur hidup kupu-kupu: Telur -> Larva (Ulat) -> Pupa (Kepompong) -> Imago (Kupu-kupu dewasa).',
-        ]);
+            [
+                'type' => 'multiple_choice',
+                'question_text' => 'Organ tubuh manusia yang berfungsi memompa darah ke seluruh tubuh adalah...',
+                'option_a' => 'Jantung',
+                'option_b' => 'Paru-paru',
+                'option_c' => 'Hati',
+                'option_d' => 'Ginjal',
+                'correct_option' => 'a',
+                'explanation' => 'Jantung adalah organ otot utama yang memompa darah beroksigen ke seluruh jaringan tubuh.',
+            ],
+            [
+                'type' => 'matching',
+                'question_text' => 'Jodohkan organ manusia berikut dengan fungsinya yang sesuai!',
+                'pair_data' => [
+                    ['left' => 'Jantung', 'right' => 'Memompa darah ke seluruh tubuh'],
+                    ['left' => 'Paru-Paru', 'right' => 'Pertukaran Oksigen dan Karbondioksida'],
+                    ['left' => 'Ginjal', 'right' => 'Menyaring sisa metabolisme dari darah'],
+                    ['left' => 'Hati', 'right' => 'Menawar racun (detoksifikasi)'],
+                ],
+                'explanation' => 'Fungsi organ: Jantung = pompa darah, Paru-paru = pernapasan, Ginjal = ekskresi darah, Hati = detoksifikasi.',
+            ],
+            [
+                'type' => 'ordering',
+                'question_text' => 'Susunlah urutan metamorofosis sempurna (daur hidup) kupu-kupu dari awal hingga menjadi kupu-kupu dewasa!',
+                'sequence_data' => [
+                    'Tahap 1: Telur',
+                    'Tahap 2: Ulat (Larva)',
+                    'Tahap 3: Kepompong (Pupa)',
+                    'Tahap 4: Kupu-Kupu Dewasa (Imago)',
+                ],
+                'explanation' => 'Daur hidup kupu-kupu: Telur -> Larva (Ulat) -> Pupa (Kepompong) -> Imago (Kupu-kupu dewasa).',
+            ],
+        ];
 
+        foreach ($ipaQuestions as $qData) {
+            Question::firstOrCreate(
+                [
+                    'exam_id' => $examIpa->id,
+                    'question_text' => $qData['question_text'],
+                ],
+                $qData
+            );
+        }
         $examIpa->update(['total_questions' => $examIpa->questions()->count()]);
     }
 }
