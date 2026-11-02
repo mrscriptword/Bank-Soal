@@ -29,6 +29,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/guru/results/export-all', [GuruController::class, 'exportAllResults'])->name('guru.results.export-all');
     Route::post('/guru/exams', [GuruController::class, 'storeExam'])->name('guru.exams.store');
     Route::post('/guru/exams/import-pdf', [GuruController::class, 'importExamFromPdf'])->name('guru.exams.import');
+    Route::post('/guru/exams/import-word', [GuruController::class, 'importExamFromWord'])->name('guru.exams.import-word');
+    Route::get('/guru/exams/import-review', [GuruController::class, 'reviewImport'])->name('guru.exams.import.review');
+    Route::post('/guru/exams/import-confirm', [GuruController::class, 'confirmImport'])->name('guru.exams.import.confirm');
     Route::delete('/guru/exams/{exam}', [GuruController::class, 'destroyExam'])->name('guru.exams.destroy');
     Route::post('/guru/questions', [GuruController::class, 'storeQuestion'])->name('guru.questions.store');
     Route::put('/guru/questions/{question}', [GuruController::class, 'updateQuestion'])->name('guru.questions.update');

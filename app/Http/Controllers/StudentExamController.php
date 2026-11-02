@@ -229,7 +229,12 @@ class StudentExamController extends Controller
                 foreach ($correctRows as $row) {
                     $stmt = $row['statement'] ?? '';
                     $expectedAns = strtolower($row['answer'] ?? 'benar');
+                    if ($expectedAns === 'tepat') $expectedAns = 'benar';
+                    if ($expectedAns === 'tidak_tepat' || $expectedAns === 'tidak tepat') $expectedAns = 'salah';
+
                     $studentAns  = strtolower($answerPayload[$stmt] ?? '');
+                    if ($studentAns === 'tepat') $studentAns = 'benar';
+                    if ($studentAns === 'tidak_tepat' || $studentAns === 'tidak tepat') $studentAns = 'salah';
                     if ($studentAns !== $expectedAns) {
                         $allMatch = false;
                         break;

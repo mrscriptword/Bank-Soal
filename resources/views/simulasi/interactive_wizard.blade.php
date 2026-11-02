@@ -335,8 +335,8 @@
 
                         <!-- Question Text & Image -->
                         <div class="pt-2 space-y-3">
-                            <p class="text-base sm:text-lg font-bold text-slate-900 dark:text-zinc-100 leading-relaxed"
-                               x-text="currentQuestion ? currentQuestion.question_text : ''"></p>
+                            <div class="text-base sm:text-lg font-bold text-slate-900 dark:text-zinc-100 leading-relaxed soal-rich-content"
+                                 x-html="formatQuestionRichContent(currentQuestion ? currentQuestion.question_text : '')"></div>
                             
                             <!-- Question Image -->
                             <template x-if="currentQuestion && (currentQuestion.image_url || currentQuestion.image)">
@@ -494,7 +494,7 @@
                             <div class="space-y-4 bg-slate-50 dark:bg-[#161618] border border-slate-200 dark:border-zinc-800/90 rounded-2xl p-4 sm:p-5">
                                 <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-zinc-800">
                                     <span class="text-xs font-bold text-slate-600 dark:text-zinc-400 flex items-center gap-1.5">
-                                        <span>&#9989;</span> Tentukan Benar atau Salah setiap pernyataan:
+                                        <span>✅</span> Tentukan Tepat atau Tidak Tepat setiap pernyataan:
                                     </span>
                                     <span class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-800"
                                           x-text="`${getTftAnsweredCount(currentQuestion.id)}/${(currentQuestion.shuffled_statements || currentQuestion.pair_data || []).length} Dijawab`"></span>
@@ -505,8 +505,8 @@
                                             <tr class="border-b border-slate-200 dark:border-zinc-700">
                                                 <th class="text-left py-2 px-3 text-xs font-bold text-slate-500 dark:text-zinc-400 w-8">#</th>
                                                 <th class="text-left py-2 px-3 text-xs font-bold text-slate-500 dark:text-zinc-400">Pernyataan</th>
-                                                <th class="py-2 px-3 text-xs font-bold text-emerald-600 dark:text-emerald-400 text-center whitespace-nowrap">Benar</th>
-                                                <th class="py-2 px-3 text-xs font-bold text-rose-600 dark:text-rose-400 text-center whitespace-nowrap">Salah</th>
+                                                <th class="py-2 px-3 text-xs font-bold text-emerald-600 dark:text-emerald-400 text-center whitespace-nowrap">Tepat</th>
+                                                <th class="py-2 px-3 text-xs font-bold text-rose-600 dark:text-rose-400 text-center whitespace-nowrap">Tidak Tepat</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -733,7 +733,8 @@
                             </span>
                         </div>
 
-                        <p class="text-sm font-medium text-slate-900 dark:text-white" x-text="item.question_text"></p>
+                        <div class="text-sm font-medium text-slate-900 dark:text-white soal-rich-content"
+                             x-html="formatQuestionRichContent(item.question_text)"></div>
 
                         <!-- Review Item Image -->
                         <template x-if="item.image">
@@ -809,7 +810,7 @@
                             <!-- TRUE/FALSE TABLE REVIEW -->
                             <template x-if="item.type === 'true_false_table'">
                                 <div class="space-y-2 pt-1">
-                                    <span class="font-bold text-slate-700 dark:text-zinc-300 block">Review Pernyataan Benar / Salah:</span>
+                                    <span class="font-bold text-slate-700 dark:text-zinc-300 block">Review Pernyataan Tepat / Tidak Tepat:</span>
                                     <div class="space-y-1.5">
                                         <template x-for="(row, rIdx) in (item.pair_data || [])" :key="rIdx">
                                             <div class="p-2.5 rounded-xl bg-white dark:bg-[#202024] border border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
@@ -820,9 +821,9 @@
                                                 <div class="flex items-center gap-2 shrink-0 text-[11px]">
                                                     <span class="text-slate-500 dark:text-zinc-400">Jawabanmu:</span>
                                                     <span :class="(item.answer_payload && item.answer_payload[row.statement] === row.answer) ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-rose-600 dark:text-rose-400 font-semibold'"
-                                                          x-text="item.answer_payload && item.answer_payload[row.statement] ? (item.answer_payload[row.statement] === 'benar' ? 'Benar' : 'Salah') : 'Belum Dijawab'"></span>
+                                                          x-text="item.answer_payload && item.answer_payload[row.statement] ? ((item.answer_payload[row.statement] === 'benar' || item.answer_payload[row.statement] === 'tepat') ? 'Tepat' : 'Tidak Tepat') : 'Belum Dijawab'"></span>
                                                     <span x-show="item.answer_payload && item.answer_payload[row.statement] !== row.answer" class="text-slate-400">
-                                                        (Kunci: <span class="font-bold text-emerald-600 dark:text-emerald-400" x-text="row.answer === 'benar' ? 'Benar' : 'Salah'"></span>)
+                                                        (Kunci: <span class="font-bold text-emerald-600 dark:text-emerald-400" x-text="(row.answer === 'benar' || row.answer === 'tepat') ? 'Tepat' : 'Tidak Tepat'"></span>)
                                                     </span>
                                                 </div>
                                             </div>
@@ -924,6 +925,16 @@
             timeTakenSeconds: 0,
             showPembahasanModal: false,
             showQuestionGridMobile: false,
+
+            formatQuestionRichContent(text) {
+                if (!text) return '';
+                if (/<table[\s\S]*?>/i.test(text)) {
+                    return text;
+                }
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML.replace(/\n/g, '<br>');
+            },
 
             jumpToQuestion(index) {
                 if (index >= 0 && index < this.questions.length) {
@@ -1279,4 +1290,40 @@
         }
     }
 </script>
+
+<style>
+.soal-rich-content table, .soal-table {
+    width: 100%;
+    margin: 12px 0;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}
+.soal-rich-content th, .soal-table th {
+    background-color: #f1f5f9;
+    color: #1e293b;
+    font-weight: 700;
+    padding: 8px 12px;
+    border: 1px solid #cbd5e1;
+    text-align: center;
+}
+.soal-rich-content td, .soal-table td {
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+    color: #334155;
+    background-color: #ffffff;
+}
+.dark .soal-rich-content th, .dark .soal-table th {
+    background-color: #27272a;
+    color: #f4f4f5;
+    border-color: #3f3f46;
+}
+.dark .soal-rich-content td, .dark .soal-table td {
+    border-color: #3f3f46;
+    color: #d4d4d8;
+    background-color: #18181b;
+}
+</style>
+
 @endsection

@@ -122,7 +122,8 @@ class GuruController extends Controller
             ->get();
 
         // ✅ Cache statistik agregat 2 menit (data ini berubah saat siswa submit)
-        $totalQuestions = Cache::driver('file')->remember('total_questions_count', 120, fn () => Question::count());
+        // Total soal dihitung real-time langsung dari daftar paket ujian aktif (konsisten & bebas stale cache)
+        $totalQuestions = $exams->sum(fn ($e) => $e->questions ? $e->questions->count() : 0);
         $totalAttempts  = Cache::driver('file')->remember('total_attempts_count', 120, fn () => ExamAttempt::count());
         $averageScore   = Cache::driver('file')->remember('average_score', 120, fn () => round(ExamAttempt::avg('score') ?? 0, 1));
 
@@ -379,6 +380,9 @@ class GuruController extends Controller
             }
         }
 
+        Cache::driver('file')->forget('total_questions_count');
+        Cache::forget('total_questions_count');
+
         return redirect()->route('guru.dashboard')->with('success', 'Soal & Pembahasan berhasil diperbarui!');
     }
 
@@ -393,12 +397,19 @@ class GuruController extends Controller
             $exam->update(['total_questions' => $exam->questions()->count()]);
         }
 
+        Cache::driver('file')->forget('total_questions_count');
+        Cache::forget('total_questions_count');
+
         return redirect()->route('guru.dashboard')->with('success', 'Soal berhasil dihapus.');
     }
 
     public function destroyExam(Exam $exam)
     {
         $exam->delete();
+
+        Cache::driver('file')->forget('total_questions_count');
+        Cache::forget('total_questions_count');
+
         return redirect()->route('guru.dashboard')->with('success', 'Paket Ujian berhasil dihapus.');
     }
 
@@ -429,42 +440,184 @@ class GuruController extends Controller
             return redirect()->back()->with('error', 'Tidak dapat mengenali format soal pada file PDF. Pastikan file PDF memuat teks soal bertipe pilihan ganda (misal: 1. Pertanyaan... A. Opsi A B. Opsi B ... Kunci: A).');
         }
 
-        $exam = Exam::create([
-            'subject_id' => $request->subject_id,
-            'title' => $request->title,
-            'duration_minutes' => $request->duration_minutes,
-            'passing_score' => $request->passing_score,
-            'grade_level' => $request->grade_level,
-            'allow_repeat' => $request->boolean('allow_repeat'),
-            'total_questions' => count($questionsData),
-            'created_by' => Auth::id() ?? 1,
-            'status' => 'active',
+        // Simpan data ke session untuk ditampilkan di halaman review sebelum disimpan ke database
+        session([
+            'pdf_import_questions' => $questionsData,
+            'pdf_import_meta' => [
+                'subject_id'       => $request->subject_id,
+                'title'            => $request->title,
+                'duration_minutes' => $request->duration_minutes,
+                'passing_score'    => $request->passing_score,
+                'grade_level'      => $request->grade_level,
+                'allow_repeat'     => $request->boolean('allow_repeat'),
+            ],
         ]);
 
-        foreach ($questionsData as $q) {
+        $totalSoal = count($questionsData);
+        $needsReviewCount = count(array_filter($questionsData, fn($q) => !empty($q['needs_review'])));
+
+        return redirect()->route('guru.exams.import.review')
+            ->with('info', "PDF berhasil diparsing: {$totalSoal} soal ditemukan" .
+                ($needsReviewCount > 0 ? ", {$needsReviewCount} soal memerlukan pemeriksaan manual." : '.'));
+    }
+
+    /**
+     * Tampilkan halaman review hasil import PDF sebelum disimpan ke database.
+     * Guru dapat melihat, mengedit, dan melengkapi soal yang perlu pemeriksaan.
+     */
+        /**
+     * Import soal ujian dari file Microsoft Word (.docx / .doc).
+     */
+    public function importExamFromWord(Request $request)
+    {
+        $request->validate([
+            'subject_id'       => 'required|exists:subjects,id',
+            'title'            => 'required|string|max:255',
+            'duration_minutes' => 'required|integer|min:1',
+            'passing_score'    => 'required|integer|min:0|max:100',
+            'grade_level'      => 'required|in:SD Kelas 4,SD Kelas 5,SD Kelas 6,SMP Kelas 7,SMP Kelas 8,SMP Kelas 9',
+            'word_file'        => 'required|file|mimes:docx,doc,zip|max:20480',
+        ]);
+
+        $wordFile = $request->file('word_file');
+
+        try {
+            $parser = new \App\Services\WordQuestionParser();
+            $questionsData = $parser->parse($wordFile->getPathname());
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Gagal memproses file Word: ' . $e->getMessage());
+        }
+
+        if (empty($questionsData)) {
+            return redirect()->back()->with('error', 'Tidak dapat mengenali format soal pada file Word. Pastikan file Word memuat teks soal bernomor dan pilihan jawaban (A, B, C, D) serta kunci jawaban.');
+        }
+
+        // Simpan data ke session untuk direview oleh guru
+        session([
+            'pdf_import_questions' => $questionsData,
+            'pdf_import_meta' => [
+                'subject_id'       => $request->subject_id,
+                'title'            => $request->title,
+                'duration_minutes' => $request->duration_minutes,
+                'passing_score'    => $request->passing_score,
+                'grade_level'      => $request->grade_level,
+                'allow_repeat'     => $request->boolean('allow_repeat'),
+                'source_type'      => 'word',
+            ],
+        ]);
+
+        $totalSoal = count($questionsData);
+        $needsReviewCount = count(array_filter($questionsData, fn($q) => !empty($q['needs_review'])));
+
+        return redirect()->route('guru.exams.import.review')
+            ->with('info', "Dokumen Word berhasil diparsing: {$totalSoal} soal ditemukan" .
+                ($needsReviewCount > 0 ? ", {$needsReviewCount} soal memerlukan pemeriksaan." : '.'));
+    }
+
+    public function reviewImport(Request $request)
+    {
+        $questionsData = session('pdf_import_questions');
+        $meta = session('pdf_import_meta');
+
+        if (empty($questionsData) || empty($meta)) {
+            return redirect()->route('guru.dashboard')
+                ->with('error', 'Sesi review import telah kedaluwarsa. Silakan upload ulang file dokumen (PDF / Word).');
+        }
+
+        $subjects = Subject::select('id', 'title')->orderBy('title')->get();
+        $totalSoal = count($questionsData);
+        $needsReviewCount = count(array_filter($questionsData, fn($q) => !empty($q['needs_review'])));
+
+        return view('guru.import-review', compact('questionsData', 'meta', 'subjects', 'totalSoal', 'needsReviewCount'));
+    }
+
+    /**
+     * Konfirmasi dan simpan soal dari hasil review import PDF ke database.
+     */
+    public function confirmImport(Request $request)
+    {
+        $questionsData = session('pdf_import_questions');
+        $meta = session('pdf_import_meta');
+
+        if (empty($questionsData) || empty($meta)) {
+            return redirect()->route('guru.dashboard')
+                ->with('error', 'Sesi review import telah kedaluwarsa. Silakan upload ulang file dokumen (PDF / Word).');
+        }
+
+        // Baca perubahan dari form review (guru bisa edit question_text per soal)
+        $edits = $request->input('questions', []);
+
+        $exam = Exam::create([
+            'subject_id'       => $meta['subject_id'],
+            'title'            => $meta['title'],
+            'duration_minutes' => $meta['duration_minutes'],
+            'passing_score'    => $meta['passing_score'],
+            'grade_level'      => $meta['grade_level'],
+            'allow_repeat'     => $meta['allow_repeat'],
+            'total_questions'  => count($questionsData),
+            'created_by'       => Auth::id() ?? 1,
+            'status'           => 'active',
+        ]);
+
+        foreach ($questionsData as $idx => $q) {
+            // Terapkan edit dari form review jika ada
+            if (!empty($edits[$idx])) {
+                if (!empty($edits[$idx]['question_text'])) {
+                    $q['question_text'] = $edits[$idx]['question_text'];
+                }
+                if (!empty($edits[$idx]['explanation'])) {
+                    $q['explanation'] = $edits[$idx]['explanation'];
+                }
+            }
+
+            // Simpan review_note ke kolom explanation jika belum ada penjelasan dan ada catatan review
+            $explanation = $q['explanation'] ?? null;
+            if (!empty($q['review_note']) && empty($explanation)) {
+                $explanation = $q['review_note'];
+            } elseif (!empty($q['review_note']) && !empty($explanation)) {
+                $explanation = $explanation . "
+
+" . $q['review_note'];
+            }
+
+            // Simpan gambar jika diunggah dari halaman review
+            $imagePath = $q['image'] ?? null;
+            if ($request->hasFile("questions.{$idx}.image")) {
+                $uploadedImage = $request->file("questions.{$idx}.image");
+                if ($uploadedImage->isValid()) {
+                    $imagePath = $uploadedImage->store('questions', 'public');
+                }
+            }
+
             Question::create([
-                'exam_id' => $exam->id,
-                'materi' => $q['materi'] ?? null,
-                'indikator' => $q['indikator'] ?? null,
-                'cognitive_level' => $q['cognitive_level'] ?? null,
-                'bobot' => $q['bobot'] ?? 1,
-                'type' => $q['type'] ?? 'multiple_choice',
-                'question_text' => $q['question_text'],
-                'option_a' => $q['option_a'],
-                'option_b' => $q['option_b'],
-                'option_c' => $q['option_c'],
-                'option_d' => $q['option_d'],
-                'correct_option' => $q['correct_option'],
-                'explanation' => $q['explanation'],
-                'pair_data' => $q['pair_data'] ?? null,
-                'sequence_data' => $q['sequence_data'] ?? null,
-                'wrong_answer_data' => $q['wrong_answer_data'] ?? null,
+                'exam_id'          => $exam->id,
+                'materi'           => $q['materi'] ?? null,
+                'indikator'        => $q['indikator'] ?? null,
+                'cognitive_level'  => $q['cognitive_level'] ?? null,
+                'bobot'            => $q['bobot'] ?? 1,
+                'type'             => $q['type'] ?? 'multiple_choice',
+                'question_text'    => $q['question_text'],
+                'image'            => $imagePath,
+                'option_a'         => $q['option_a'] ?? null,
+                'option_b'         => $q['option_b'] ?? null,
+                'option_c'         => $q['option_c'] ?? null,
+                'option_d'         => $q['option_d'] ?? null,
+                'correct_option'   => $q['correct_option'] ?? null,
+                'explanation'      => $explanation,
+                'pair_data'        => $q['pair_data'] ?? null,
+                'sequence_data'    => $q['sequence_data'] ?? null,
+                'wrong_answer_data'=> $q['wrong_answer_data'] ?? null,
             ]);
         }
 
+        // Hapus session setelah berhasil disimpan
+        session()->forget(['pdf_import_questions', 'pdf_import_meta']);
+
         Cache::driver('file')->forget('total_questions_count');
 
-        return redirect()->route('guru.dashboard')->with('success', 'Paket Ujian berhasil dibuat dari file PDF! (' . count($questionsData) . ' soal terimpor)');
+        $totalSoal = count($questionsData);
+        return redirect()->route('guru.dashboard')
+            ->with('success', 'Paket Ujian "' . $meta['title'] . '" berhasil dibuat! (' . $totalSoal . ' soal terimpor)');
     }
 
     public function downloadTemplate()
@@ -558,9 +711,7 @@ class GuruController extends Controller
 
     public function parsePdfTextToQuestions(string $text): array
     {
-        $text = str_replace(["\r\n", "\r"], "\n", $text);
-        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $text);
-        $text = str_replace(["\xc2\xa0", "&nbsp;"], ' ', $text);
+        $text = $this->normalizePdfExtractedText($text);
 
         // 1. Ekstrak Tabel Kunci Jawaban Global di akhir/awal dokumen (misal: "KUNCI JAWABAN: 1. A 2. B 3. C")
         $globalKeys = [];
@@ -572,6 +723,11 @@ class GuruController extends Controller
                 }
             }
             $text = substr($text, 0, $mGlobal[0][1]);
+        }
+
+        // Potong bagian kisi-kisi / indikator agar tidak terbaca sebagai soal
+        if (preg_match('/(?:Kisi\s*-\s*kisi\s+Soal|Indikator\s+Soal\s+Jawaban|KISI\s*-\s*KISI)/i', $text, $mKisi, PREG_OFFSET_CAPTURE)) {
+            $text = substr($text, 0, $mKisi[0][1]);
         }
 
         $lines = explode("\n", $text);
@@ -602,24 +758,37 @@ class GuruController extends Controller
             }
 
             // Deteksi baris awal nomor soal: misal "1. ", "2) ", "Soal 1: ", "1 . ", dll.
-            if (preg_match('/^(?:Soal\s*(?:No\.?|Nomor)?\s*|No\.?\s*)?(\d+)[\.\:\)](?:\s+(.*)|\s*$)/i', $trimmed, $m)) {
+            if (preg_match('/^(?:Soal\s*(?:No\.?|Nomor)?\s*|No\.?\s*)?(\d+)[\.\:\)](?:\s+(.*)|\s*$)/iu', $trimmed, $m)) {
                 $qNum = (int)$m[1];
                 $rest = isset($m[2]) ? trim($m[2]) : '';
+
+                // Cek apakah $rest diawali oleh satuan ukuran atau kata sambung pecahan (bukan soal baru)
+                $restIsUnitOrContinuation = false;
+                if (!empty($rest)) {
+                    if (preg_match('/^(?:kg|g|gram|liter|l|meter|m|cm|mm|dm|hektare|ha|buah|bungkus|orang|siswa|lembar|keping|menit|jam|detik|kotak|botol|buku|tali|pita)\b/iu', $rest)) {
+                        $restIsUnitOrContinuation = true;
+                    }
+                }
 
                 $isNextQuestion = false;
                 if ($lastQuestionNumber === 0) {
                     // Soal pertama di dokumen (mulai dari nomor 1 sampai 5)
-                    if ($qNum >= 1 && $qNum <= 5) {
+                    if ($qNum >= 1 && $qNum <= 5 && !empty($rest) && !$restIsUnitOrContinuation) {
                         // Jangan terkecoh teks petunjuk template (misal: "1. Sistem mendukung 5 model soal...")
                         if (!preg_match('/^(?:Sistem\s+mendukung|Petunjuk|Gunakan|Anda\s+dapat|Simpan\s+file|Format|Template)/i', $rest)) {
-                            $isNextQuestion = true;
+                            // Jangan terkecoh angka tunggal (pembilang/penyebut pecahan)
+                            if (!preg_match('/^\d{1,2}$/', $rest)) {
+                                $isNextQuestion = true;
+                            }
                         }
                     }
                 } else {
-                    // Progresi nomor soal yang valid (misal: 1 -> 2, atau lompat 1-5 jika guru menghapus nomor)
-                    // PENTING: Jika $qNum <= $lastQuestionNumber (misal (1), (2) sub-pernyataan di dalam soal 16), itu BUKAN soal baru!
-                    if ($qNum > $lastQuestionNumber && $qNum <= $lastQuestionNumber + 5) {
-                        $isNextQuestion = true;
+                    // Progresi nomor soal yang valid: nomor lebih besar dari soal sebelumnya (rentang toleransi 1 s/d 5)
+                    if ($qNum > $lastQuestionNumber && $qNum <= $lastQuestionNumber + 5 && !$restIsUnitOrContinuation) {
+                        // Jangan terkecoh angka tunggal sisa baris (pembilang/penyebut pecahan)
+                        if (empty($rest) || !preg_match('/^\d{1,2}$/', $rest)) {
+                            $isNextQuestion = true;
+                        }
                     }
                 }
 
@@ -653,11 +822,72 @@ class GuruController extends Controller
             $gKey = $globalKeys[$qNum] ?? null;
             $parsed = $this->formatParsedQuestionBlock($block, $gKey);
             if ($parsed && !empty($parsed['question_text'])) {
+                // Simpan nomor soal asli dari dokumen PDF
+                $parsed['question_number'] = $qNum;
                 $questions[] = $parsed;
             }
         }
 
         return $questions;
+    }
+
+    /**
+     * Normalisasi simbol matematika, pecahan, superskrip, dan karakter encoding rusak dari PDF.
+     */
+    private function normalizePdfExtractedText(string $text): string
+    {
+        // Pastikan encoding string UTF-8 valid dan aman dari byte rusak
+        if (function_exists('mb_scrub')) {
+            $text = mb_scrub($text, 'UTF-8');
+        }
+
+        $text = str_replace(["\r\n", "\r"], "\n", $text);
+        // Hapus karakter kontrol biner tanpa flag /u agar tidak memicu PREG_BAD_UTF8_ERROR
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $text);
+        $text = str_replace(["\xc2\xa0", "&nbsp;"], ' ', $text);
+
+        // 1. Substitusi simbol aritmatika dan karakter encoding artifact PDF
+        $replacements = [
+            '├À' => '÷',
+            '├ù' => '×',
+            'ÔêÆ' => '−',
+            'Ô£ô' => '✓',
+            'ÔÇô' => '–',
+            '┬░' => '°',
+            '┬▓' => '²',
+            '┬¢' => '1/2',
+            '┬╝' => '1/4',
+            '½'  => '1/2',
+            '¼'  => '1/4',
+            '¾'  => '3/4',
+        ];
+        $text = str_replace(array_keys($replacements), array_values($replacements), $text);
+
+        // 2. Normalisasi fraction slash U+2044 (atau artifact Ôüä)
+        // Misal: 12Ôüä -> 1/2, 14Ôüä -> 1/4, 34Ôüä -> 3/4, 18Ôüä -> 1/8, 58Ôüä -> 5/8, 38Ôüä -> 3/8
+        $text = preg_replace('/(\d)(\d)(?:Ôüä|\x{2044}|\/)/u', '$1/$2', $text);
+        $text = str_replace(['Ôüä', "\u{2044}"], '/', $text);
+
+        // 3. Normalisasi superskrip pangkat (cm² dan cm³) baik satu baris maupun terpecah baris
+        // AMAN: hanya gabungkan satuan (cm/mm/dm) yang diikuti newline + angka 2/3 saja
+        $text = preg_replace('/(cm|mm|dm)\s*\n\s*(3)(?!\s*\d|\s*\.)/iu', '$1³', $text);
+        $text = preg_replace('/(cm|mm|dm)\s*\n\s*(2)(?!\s*\d|\s*\.)/iu', '$1²', $text);
+        $text = preg_replace('/\b(cm|mm|dm|m)3\b/iu', '$1³', $text);
+        $text = preg_replace('/\b(cm|mm|dm|m)2\b/iu', '$1²', $text);
+
+        // 4. Normalisasi pecahan campuran dan biasa yang terpecah multi-baris
+        // PENTING: Regex ini HANYA cocok jika diikuti satuan ukuran eksplisit di baris terdekat.
+        // Pembilang/penyebut dibatasi maks 2 digit agar tidak mencocokkan nomor soal (biasanya 1-2 digit).
+        // Dihapus 'm' dari daftar satuan karena ambigu dengan akhir kata/kalimat.
+        // Pola campuran: bilat_bulat\npembilang\npenyebut satuan -> 'bulat pembilang/penyebut satuan'
+        $text = preg_replace('/(?<!\d)(\d{1,3})\s*\n\s*(\d{1,2})\s*\n\s*(\d{1,2})[ \t]+(kg|g|gram|liter|l|hektare|ha|bungkus|buah|kotak)\b/iu', '$1 $2/$3 $4', $text);
+        // Pola biasa 2-baris: pembilang\npenyebut satuan -> 'pembilang/penyebut satuan'
+        $text = preg_replace('/(?<!\d)(\d{1,2})\s*\n\s*(\d{1,2})[ \t]+(kg|g|gram|liter|l|hektare|ha|bungkus|buah|kotak)\b/iu', '$1/$2 $3', $text);
+
+        // 5. Normalisasi baris Jawaban berbasis font Math Italic (contoh soal 11: ÝáÁ...: c)
+        $text = preg_replace('/Ý[^\n\:\;]*[:\;][ \t]*([a-eA-E])\b/u', 'Jawaban: $1', $text);
+
+        return $text;
     }
 
     private function formatParsedQuestionBlock(string $block, ?string $globalKey = null): ?array
@@ -713,18 +943,41 @@ class GuruController extends Controller
             }
 
             // 2. Kunci Jawaban (OPSIONAL - Jika tidak ada, default otomatis)
-            if (preg_match('/^(?:Kunci\s*Jawaban|Kunci|Jawaban\s*Benar|Jawaban|Jwb|Key|Ans)\s*:?\s*(?:Benar\s*)?(.*)$/i', $trimmed, $m)) {
+            if (preg_match('/^(?:Kunci\s*Jawaban|Kunci|Jawaban\s*Benar|Jawaban|Jwb|Key|Ans)\s*:?\s*(?:Benar\s*)?(.*)$/iu', $trimmed, $m)) {
                 $rawKey = trim($m[1]);
-                if (preg_match_all('/[a-eA-E]/', $rawKey, $km)) {
-                    $letters = array_unique(array_map('strtolower', $km[0]));
-                    if (count($letters) > 1) {
-                        $correctKey = implode(',', $letters);
-                        if (!$type) $type = 'multiple_select';
-                    } elseif (count($letters) === 1) {
-                        $correctKey = $letters[0];
-                    }
+
+                // Kasus A: Kunci berformat label tunggal di awal diikuti tanda titik/kurung (misal: "D. (ii), (iii)", "B. 12 hari", "C. 130°")
+                if (preg_match('/^([a-eA-E])[\.\:\)]\s+/u', $rawKey, $mSingle)) {
+                    $correctKey = strtolower($mSingle[1]);
+                    if (!$type) $type = 'multiple_choice';
                 } else {
-                    $correctKey = $rawKey;
+                    // Kasus B: Ekstrak huruf opsi A-E yang berdiri sendiri sebagai token kata (\b menjamin kata seperti "dan" atau "dari" tidak dianggap opsi)
+                    if (preg_match_all('/\b([a-eA-E])\b/u', $rawKey, $km)) {
+                        $letters = array_values(array_unique(array_map('strtolower', $km[1])));
+                        sort($letters);
+                        if (count($letters) > 1) {
+                            $type = 'multiple_select';
+                            $sequenceData = $letters;
+                            $correctKey = $letters[0];
+                        } elseif (count($letters) === 1) {
+                            $correctKey = $letters[0];
+                            if (!$type) $type = 'multiple_choice';
+                        }
+                    } else {
+                        // Tangani kunci format Tepat/Tidak Tepat: "T – TT – TT – T"
+                        if (preg_match('/\b(T|TT)\b/i', $rawKey)) {
+                            if (!$type) $type = 'true_false_table';
+                            // Ekstrak urutan T/TT sebagai array jawaban per pernyataan
+                            preg_match_all('/\b(TT|T)\b/i', $rawKey, $tfm);
+                            $tfAnswers = array_map(function($v) {
+                                return (strtoupper($v) === 'T') ? 'benar' : 'salah';
+                            }, $tfm[1]);
+                            // Simpan kunci di correctKey sebagai string agar tidak null
+                            $correctKey = strtoupper(trim($rawKey));
+                        } else {
+                            $correctKey = $rawKey;
+                        }
+                    }
                 }
                 $currentSection = 'after_key';
                 continue;
@@ -810,7 +1063,32 @@ class GuruController extends Controller
                 continue;
             }
 
-            // 5. Deteksi Baris True/False Table (Benar/Salah)
+            // 5a. Lewati baris header tabel Tepat/Tidak Tepat (misal: "Pernyataan\tTepat Tidak tepat")
+            if (preg_match('/^Pernyataan\s*\t/i', $trimmed)) {
+                if (!$type) $type = 'true_false_table';
+                continue;
+            }
+
+            // 5b. Baris pernyataan dengan tab + Tepat/Tidak Tepat inline → simpan ke pairData
+            if (preg_match('/^(.+?)\s*\t+\s*(Tepat|Tidak\s*[Tt]epat|Benar|Salah)\s*(?:Tidak\s*[Tt]epat|Tepat)?\s*$/u', $trimmed, $tfrow)) {
+                if (!$type) $type = 'true_false_table';
+                $tfAns = preg_match('/^(Tepat|Benar)/i', trim($tfrow[2])) ? 'benar' : 'salah';
+                $pairData[] = ['statement' => trim($tfrow[1]), 'answer' => $tfAns];
+                $currentSection = 'tft_row';
+                continue;
+            }
+
+            // 5c. Baris lanjutan pernyataan TFT tanpa jawaban (baris panjang setelah header tabel)
+            if ($currentSection === 'tft_row' && !preg_match('/^[a-eA-E][\.\)]\s/u', $trimmed) && !preg_match('/^(?:Jawaban|Kunci)/i', $trimmed)) {
+                // Lanjutkan ke bagian pernyataan terakhir jika belum ada jawaban inline
+                if (!empty($pairData)) {
+                    $lastIdx = count($pairData) - 1;
+                    $pairData[$lastIdx]['statement'] .= ' ' . $trimmed;
+                    continue;
+                }
+            }
+
+            // 5d. Deteksi Baris True/False Table dengan separator => (format template)
             if (preg_match('/^(?:[a-zA-Z0-9][\.\)]\s*)?(.+?)\s*(?:=>|➔|->|=)\s*(Benar|Salah|True|False)\b/i', $trimmed, $tm)) {
                 if (!$type) $type = 'true_false_table';
                 $pairData[] = [
@@ -917,27 +1195,38 @@ class GuruController extends Controller
             $questionText = !empty($options['a']) ? 'Soal Pilihan Ganda' : 'Soal Ujian';
         }
 
-        // Cocokkan teks kunci jika berupa isi jawaban
-        if ($correctKey && !in_array(strtolower($correctKey), ['a', 'b', 'c', 'd', 'e'])) {
-            $cleanKey = strtolower(trim($correctKey));
-            foreach (['a', 'b', 'c', 'd'] as $k) {
-                if (!empty($options[$k]) && strtolower(trim($options[$k])) === $cleanKey) {
-                    $correctKey = $k;
-                    break;
+        // Penanganan kunci jawaban dan tipe soal
+        if ($type === 'multiple_select') {
+            if (empty($sequenceData)) {
+                if (is_array($correctKey)) {
+                    $sequenceData = $correctKey;
+                } elseif (is_string($correctKey) && str_contains($correctKey, ',')) {
+                    $sequenceData = array_map('trim', explode(',', $correctKey));
+                } elseif (!empty($correctKey)) {
+                    $sequenceData = [trim($correctKey)];
+                } else {
+                    $sequenceData = ['a'];
                 }
             }
-            if (!in_array(strtolower($correctKey), ['a', 'b', 'c', 'd'])) {
-                $correctKey = 'a';
-            }
+            $sequenceData = array_values(array_unique(array_map('strtolower', $sequenceData)));
+            sort($sequenceData);
+            // correct_option diset 1 huruf pertama agar selalu kompatibel dengan kolom string(1) di database
+            $correctKey = $sequenceData[0] ?? 'a';
         } else {
-            $correctKey = strtolower($correctKey ?: 'a');
-        }
-
-        if ($type === 'multiple_select') {
-            if (str_contains($correctKey, ',')) {
-                $sequenceData = array_map('trim', explode(',', $correctKey));
+            // Standar multiple choice: cocokkan jika berupa isi jawaban
+            if ($correctKey && !in_array(strtolower($correctKey), ['a', 'b', 'c', 'd', 'e'])) {
+                $cleanKey = strtolower(trim($correctKey));
+                foreach (['a', 'b', 'c', 'd'] as $k) {
+                    if (!empty($options[$k]) && strtolower(trim($options[$k])) === $cleanKey) {
+                        $correctKey = $k;
+                        break;
+                    }
+                }
+                if (!in_array(strtolower($correctKey), ['a', 'b', 'c', 'd'])) {
+                    $correctKey = 'a';
+                }
             } else {
-                $sequenceData = [$correctKey];
+                $correctKey = strtolower($correctKey ?: 'a');
             }
         }
 
@@ -968,6 +1257,37 @@ class GuruController extends Controller
         $materi = !empty($materiLines) ? trim(implode(' ', $materiLines)) : null;
         $indikator = !empty($indikatorLines) ? trim(implode(' ', $indikatorLines)) : null;
 
+        // ── Deteksi konten visual (gambar / diagram / grafik / tabel) ──────────────
+        $needsReview = false;
+        $reviewNote = null;
+        $visualKeywords = [
+            'gambar', 'diagram', 'grafik', 'tabel', 'figure', 'chart', 'graph',
+            'perhatikan gambar', 'perhatikan diagram', 'perhatikan grafik',
+            'perhatikan tabel', 'lihat gambar', 'pada gambar', 'sesuai gambar',
+        ];
+        $qtLower = mb_strtolower($questionText);
+        foreach ($visualKeywords as $kw) {
+            if (str_contains($qtLower, $kw)) {
+                $needsReview = true;
+                if (str_contains($qtLower, 'gambar') || str_contains($qtLower, 'figure')) {
+                    $reviewNote = '[PERLU GAMBAR] Soal ini mengacu pada gambar yang belum tersedia. Silakan unggah gambar secara manual.';
+                } elseif (str_contains($qtLower, 'diagram')) {
+                    $reviewNote = '[PERLU DIAGRAM] Soal ini mengacu pada diagram yang belum tersedia. Silakan lengkapi secara manual.';
+                } elseif (str_contains($qtLower, 'grafik')) {
+                    $reviewNote = '[PERLU GRAFIK] Soal ini mengacu pada grafik yang belum tersedia. Silakan lengkapi secara manual.';
+                } elseif (str_contains($qtLower, 'tabel')) {
+                    $reviewNote = '[PERLU TABEL] Soal ini mengacu pada tabel. Periksa apakah isi tabel sudah terbaca dengan benar.';
+                }
+                break;
+            }
+        }
+
+        // Tandai soal true_false_table yang tidak memiliki pernyataan sama sekali
+        if ($type === 'true_false_table' && empty($pairData)) {
+            $needsReview = true;
+            $reviewNote = ($reviewNote ?? '') . '[PERLU PERNYATAAN] Tabel pernyataan Tepat/Tidak Tepat tidak berhasil diekstrak. Silakan isi secara manual.';
+        }
+
         return [
             'question_text' => $questionText,
             'materi' => $materi,
@@ -979,11 +1299,13 @@ class GuruController extends Controller
             'option_b' => in_array($type, ['multiple_choice', 'multiple_select']) ? $options['b'] : null,
             'option_c' => in_array($type, ['multiple_choice', 'multiple_select']) ? $options['c'] : null,
             'option_d' => in_array($type, ['multiple_choice', 'multiple_select']) ? $options['d'] : null,
-            'correct_option' => $type === 'multiple_choice' ? $correctKey : ($type === 'multiple_select' ? (is_array($correctKey) ? implode(',', $correctKey) : $correctKey) : null),
+            'correct_option' => in_array($type, ['multiple_choice', 'multiple_select']) ? $correctKey : null,
             'explanation' => $explanation,
             'pair_data' => in_array($type, ['matching', 'true_false_table']) ? (empty($pairData) ? null : $pairData) : null,
             'sequence_data' => in_array($type, ['ordering', 'multiple_select']) ? (empty($sequenceData) ? null : $sequenceData) : null,
             'wrong_answer_data' => $type === 'multiple_choice' ? (empty($wrongAnswerData) ? null : $wrongAnswerData) : null,
+            'needs_review'      => $needsReview,
+            'review_note'       => $reviewNote,
         ];
     }
 

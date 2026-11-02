@@ -18,6 +18,9 @@
             <a href="{{ route('guru.results.export-all') }}" class="px-3.5 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-emerald-700/20 flex items-center gap-1.5" title="Export Rekap Seluruh Nilai Siswa">
                 <span>📥</span> Export Semua Nilai (.xls)
             </a>
+            <a href="#modal-word-exam" onclick="document.getElementById('modal-word-exam').classList.remove('hidden')" class="px-3.5 py-2.5 bg-blue-700 hover:bg-blue-600 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-blue-700/20 flex items-center gap-1.5" title="Import naskah soal dari dokumen Word (.docx)">
+                <span>📝</span> Upload Word (.docx)
+            </a>
             <a href="#modal-pdf-exam" onclick="document.getElementById('modal-pdf-exam').classList.remove('hidden')" class="px-3.5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-purple-600/20 flex items-center gap-1.5">
                 <span>📄</span> Upload PDF Ujian
             </a>
@@ -170,7 +173,7 @@
                                         <div class="bg-white dark:bg-zinc-900/90 border border-slate-200 dark:border-zinc-800/60 p-3.5 rounded-xl flex items-start justify-between gap-3 text-xs hover:border-slate-300 dark:hover:border-zinc-700/60 transition">
                                             <div class="space-y-1">
                                                 <div class="flex items-center flex-wrap gap-2">
-                                                    <span class="font-bold text-slate-800 dark:text-zinc-200">#{{ $idx + 1 }}. {{ Str::limit($q->question_text, 80) }}</span>
+                                                    <span class="font-bold text-slate-800 dark:text-zinc-200">#{{ $idx + 1 }}. {{ Str::limit(strip_tags($q->question_text), 80) }}</span>
                                                     @if($q->type === 'matching')
                                                         <span class="px-2 py-0.5 bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 text-[10px] font-bold rounded-md inline-flex items-center gap-1">
                                                             🧩 Pasangan
@@ -181,7 +184,7 @@
                                                         </span>
                                                     @elseif($q->type === 'true_false_table')
                                                         <span class="px-2 py-0.5 bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-800 text-[10px] font-bold rounded-md inline-flex items-center gap-1">
-                                                            ✅ Benar/Salah
+                                                            ✅ Tepat/Tidak Tepat
                                                         </span>
                                                     @elseif($q->type === 'multiple_select')
                                                         <span class="px-2 py-0.5 bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[10px] font-bold rounded-md inline-flex items-center gap-1">
@@ -598,15 +601,26 @@
                 <select name="type" id="create_question_type" onchange="toggleQuestionTypeFields('create')" class="w-full bg-slate-50 dark:bg-zinc-900 border border-purple-500/40 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 dark:text-white">
                     <option value="multiple_choice">Pilihan Ganda (Standard A, B, C, D)</option>
                     <option value="multiple_select">&#9745;&#65039; Pilihan Ganda Kompleks (Jawaban &gt; 1)</option>
-                    <option value="true_false_table">&#9989; Benar / Salah (Tabel Pernyataan)</option>
+                    <option value="true_false_table">✅ Tepat / Tidak Tepat (Tabel Pernyataan)</option>
                     <option value="matching">🧩 Pasangan (Menjodohkan Kiri & Kanan)</option>
                     <option value="ordering">🔢 Susun Urutan (Urutan Langkah/Kronologis)</option>
                 </select>
             </div>
 
             <div class="space-y-1">
-                <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pertanyaan / Instruksi Soal</label>
-                <textarea name="question_text" rows="3" required placeholder="Ketik kalimat soal atau instruksi di sini..." class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white"></textarea>
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pertanyaan / Instruksi Soal</label>
+                    <button type="button" onclick="openTableModal('create')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800/60 flex items-center gap-1 transition">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 4h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        Tambah / Edit Tabel
+                    </button>
+                </div>
+                <textarea id="create_question_text" name="question_text" rows="3" required placeholder="Ketik kalimat soal atau instruksi di sini..." oninput="onQuestionTextInput('create')" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white font-mono leading-relaxed"></textarea>
+                <div id="table_builder_create" class="hidden p-3 bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-xl space-y-2 mt-2"></div>
+                <div class="mt-2 p-2.5 bg-slate-100 dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs space-y-1">
+                    <span class="text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">👁️ Live Preview Tampilan Soal:</span>
+                    <div id="live_preview_create" class="text-slate-800 dark:text-zinc-200 text-xs leading-relaxed soal-rich-content bg-white dark:bg-zinc-950 p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800"></div>
+                </div>
             </div>
 
             <!-- Upload Gambar Soal (Max 500 KB) -->
@@ -825,15 +839,26 @@
                 <select id="edit_type" name="type" onchange="toggleQuestionTypeFields('edit')" class="w-full bg-slate-50 dark:bg-zinc-900 border border-purple-500/40 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 dark:text-white">
                     <option value="multiple_choice">Pilihan Ganda (Standard A, B, C, D)</option>
                     <option value="multiple_select">&#9745;&#65039; Pilihan Ganda Kompleks (Jawaban &gt; 1)</option>
-                    <option value="true_false_table">&#9989; Benar / Salah (Tabel Pernyataan)</option>
+                    <option value="true_false_table">✅ Tepat / Tidak Tepat (Tabel Pernyataan)</option>
                     <option value="matching">🧩 Pasangan (Menjodohkan Kiri & Kanan)</option>
                     <option value="ordering">🔢 Susun Urutan (Urutan Langkah/Kronologis)</option>
                 </select>
             </div>
 
             <div class="space-y-1">
-                <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pertanyaan / Instruksi Soal</label>
-                <textarea id="edit_question_text" name="question_text" rows="3" required placeholder="Ketik kalimat soal di sini..." class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white"></textarea>
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pertanyaan / Instruksi Soal</label>
+                    <button type="button" onclick="openTableModal('edit')" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800/60 flex items-center gap-1 transition">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 4h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        Tambah / Edit Tabel
+                    </button>
+                </div>
+                <textarea id="edit_question_text" name="question_text" rows="3" required placeholder="Ketik kalimat soal di sini..." oninput="onQuestionTextInput('edit')" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white font-mono leading-relaxed"></textarea>
+                <div id="table_builder_edit" class="hidden p-3 bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-xl space-y-2 mt-2"></div>
+                <div class="mt-2 p-2.5 bg-slate-100 dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs space-y-1">
+                    <span class="text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">👁️ Live Preview Tampilan Soal:</span>
+                    <div id="live_preview_edit" class="text-slate-800 dark:text-zinc-200 text-xs leading-relaxed soal-rich-content bg-white dark:bg-zinc-950 p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800"></div>
+                </div>
             </div>
 
             <!-- Upload / Ganti Gambar Soal (Max 500 KB) -->
@@ -1137,6 +1162,8 @@ function openEditQuestionModal(question) {
     document.getElementById('edit_exam_id').value = question.exam_id;
     document.getElementById('edit_type').value = question.type || 'multiple_choice';
     document.getElementById('edit_question_text').value = question.question_text || '';
+    initTableBuilderForContext('edit');
+    updateLivePreview('edit');
     document.getElementById('edit_option_a').value = question.option_a || '';
     document.getElementById('edit_option_b').value = question.option_b || '';
     document.getElementById('edit_option_c').value = question.option_c || '';
@@ -1230,7 +1257,378 @@ function openEditQuestionModal(question) {
     updateCorrectOptionHighlight('edit');
     document.getElementById('modal-edit-question').classList.remove('hidden');
 }
+
+// ── UNIVERSAL VISUAL TABLE BUILDER UNTUK GURU DASHBOARD ──
+let activeTableContext = null;
+const tableDataStore = {};
+
+function getTextareaForContext(contextId) {
+    if (contextId === 'edit') return document.getElementById('edit_question_text');
+    if (contextId === 'create') return document.getElementById('create_question_text');
+    return document.getElementById(contextId);
+}
+
+function openTableModal(contextId) {
+    activeTableContext = contextId;
+    const textarea = getTextareaForContext(contextId);
+    if (textarea && /<table[\s\S]*?<\/table>/i.test(textarea.value)) {
+        initTableBuilderForContext(contextId);
+        const builder = document.getElementById('table_builder_' + contextId);
+        if (builder) builder.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+    }
+    document.getElementById('modal_table_config').classList.remove('hidden');
+}
+
+function closeTableModal() {
+    document.getElementById('modal_table_config').classList.add('hidden');
+}
+
+function confirmCreateTable() {
+    if (!activeTableContext) return;
+    const rows = parseInt(document.getElementById('modal_table_rows').value) || 3;
+    const cols = parseInt(document.getElementById('modal_table_cols').value) || 2;
+    closeTableModal();
+
+    const grid = [];
+    for (let r = 0; r < rows; r++) {
+        const row = [];
+        for (let c = 0; c < cols; c++) {
+            row.push(r === 0 ? ('Judul ' + (c + 1)) : '');
+        }
+        grid.push(row);
+    }
+
+    tableDataStore[activeTableContext] = grid;
+    insertTableIntoTextarea(activeTableContext, buildHtmlTable(grid));
+    renderTableBuilder(activeTableContext);
+    updateLivePreview(activeTableContext);
+}
+
+function parseTableFromHtml(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const table = doc.querySelector('table');
+    if (!table) return null;
+
+    const grid = [];
+    table.querySelectorAll('tr').forEach(tr => {
+        const row = [];
+        tr.querySelectorAll('th, td').forEach(cell => {
+            row.push(cell.textContent.trim());
+        });
+        if (row.length > 0) grid.push(row);
+    });
+    return grid.length > 0 ? grid : null;
+}
+
+function buildHtmlTable(grid) {
+    if (!grid || grid.length === 0) return '';
+    let html = '<div class="table-responsive my-3 overflow-x-auto">\n';
+    html += '  <table class="soal-table w-full border-collapse border border-slate-300 dark:border-zinc-700 text-sm">\n';
+    html += '    <thead>\n      <tr class="bg-slate-100 dark:bg-zinc-800 font-bold">\n';
+    (grid[0] || []).forEach(h => {
+        html += '        <th class="border border-slate-300 dark:border-zinc-700 px-3 py-2 text-center">' + escapeHtml(h) + '</th>\n';
+    });
+    html += '      </tr>\n    </thead>\n    <tbody>\n';
+    for (let r = 1; r < grid.length; r++) {
+        html += '      <tr>\n';
+        (grid[r] || []).forEach(cell => {
+            html += '        <td class="border border-slate-300 dark:border-zinc-700 px-3 py-2 text-center">' + escapeHtml(cell) + '</td>\n';
+        });
+        html += '      </tr>\n';
+    }
+    html += '    </tbody>\n  </table>\n</div>';
+    return html;
+}
+
+function escapeHtml(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function insertTableIntoTextarea(contextId, tableHtml) {
+    const textarea = getTextareaForContext(contextId);
+    if (!textarea) return;
+
+    const val = textarea.value;
+    const tableRegex = /<div class="table-responsive[\s\S]*?<\/div>|<table[\s\S]*?<\/table>/i;
+
+    if (tableRegex.test(val)) {
+        textarea.value = val.replace(tableRegex, tableHtml);
+    } else {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        if (start !== undefined && end !== undefined && start !== end) {
+            textarea.value = val.substring(0, start) + '\n\n' + tableHtml + '\n\n' + val.substring(end);
+        } else if (start !== undefined) {
+            textarea.value = val.substring(0, start) + '\n\n' + tableHtml + '\n\n' + val.substring(start);
+        } else {
+            textarea.value = val.trim() + '\n\n' + tableHtml;
+        }
+    }
+}
+
+function initTableBuilderForContext(contextId) {
+    const textarea = getTextareaForContext(contextId);
+    if (!textarea) return;
+
+    const val = textarea.value;
+    const tableRegex = /<table[\s\S]*?<\/table>/i;
+    const match = val.match(tableRegex);
+
+    if (match) {
+        const grid = parseTableFromHtml(match[0]);
+        if (grid) {
+            tableDataStore[contextId] = grid;
+            renderTableBuilder(contextId);
+            return;
+        }
+    }
+    const builder = document.getElementById('table_builder_' + contextId);
+    if (builder) builder.classList.add('hidden');
+}
+
+function renderTableBuilder(contextId) {
+    const builder = document.getElementById('table_builder_' + contextId);
+    if (!builder) return;
+
+    const grid = tableDataStore[contextId];
+    if (!grid || grid.length === 0) {
+        builder.classList.add('hidden');
+        return;
+    }
+
+    builder.classList.remove('hidden');
+
+    let html = `
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-200 dark:border-indigo-800/60 pb-2">
+            <span class="text-xs font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5">
+                <span>📊</span> Editor Visual Tabel Soal
+                <span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-normal">(${grid.length} baris × ${grid[0].length} kolom)</span>
+            </span>
+            <div class="flex items-center gap-1 flex-wrap">
+                <button type="button" onclick="addTableRow('${contextId}')" class="px-2 py-1 text-[11px] font-semibold bg-white dark:bg-zinc-800 border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 rounded">+ Baris</button>
+                <button type="button" onclick="removeTableRow('${contextId}')" class="px-2 py-1 text-[11px] font-semibold bg-white dark:bg-zinc-800 border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 rounded">- Baris</button>
+                <button type="button" onclick="addTableCol('${contextId}')" class="px-2 py-1 text-[11px] font-semibold bg-white dark:bg-zinc-800 border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 rounded">+ Kolom</button>
+                <button type="button" onclick="removeTableCol('${contextId}')" class="px-2 py-1 text-[11px] font-semibold bg-white dark:bg-zinc-800 border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 rounded">- Kolom</button>
+                <button type="button" onclick="deleteTable('${contextId}')" class="px-2 py-1 text-[11px] font-semibold bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 hover:bg-rose-100 rounded">🗑️ Hapus Tabel</button>
+            </div>
+        </div>
+        <div class="overflow-x-auto max-h-56 overflow-y-auto">
+            <table class="w-full border-collapse border border-indigo-200 dark:border-indigo-800/60 text-xs">
+                <tbody>
+    `;
+
+    grid.forEach((row, rIdx) => {
+        const isHeader = rIdx === 0;
+        html += `<tr class="${isHeader ? 'bg-indigo-100/70 dark:bg-indigo-950/80 font-bold' : (rIdx % 2 === 0 ? 'bg-white dark:bg-zinc-900' : 'bg-indigo-50/30 dark:bg-zinc-900/40')}">`;
+        row.forEach((cell, cIdx) => {
+            html += `
+                <td class="p-1 border border-indigo-200 dark:border-indigo-800/60">
+                    <input type="text"
+                           value="${escapeHtml(cell)}"
+                           placeholder="${isHeader ? 'Judul Kolom' : 'Isi sel...'}"
+                           oninput="updateTableCell('${contextId}', ${rIdx}, ${cIdx}, this.value)"
+                           class="w-full text-xs px-2 py-1 border border-transparent focus:border-indigo-400 focus:bg-white dark:focus:bg-zinc-800 rounded focus:outline-none ${isHeader ? 'font-bold text-indigo-900 dark:text-indigo-200 bg-transparent' : 'text-slate-800 dark:text-zinc-200 bg-transparent'}">
+                </td>
+            `;
+        });
+        html += `</tr>`;
+    });
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    builder.innerHTML = html;
+}
+
+function updateTableCell(contextId, rIdx, cIdx, val) {
+    if (!tableDataStore[contextId]) return;
+    tableDataStore[contextId][rIdx][cIdx] = val;
+    syncTableToTextarea(contextId);
+}
+
+function addTableRow(contextId) {
+    if (!tableDataStore[contextId]) return;
+    const grid = tableDataStore[contextId];
+    const cols = grid[0] ? grid[0].length : 2;
+    const newRow = new Array(cols).fill('');
+    grid.push(newRow);
+    renderTableBuilder(contextId);
+    syncTableToTextarea(contextId);
+}
+
+function removeTableRow(contextId) {
+    if (!tableDataStore[contextId]) return;
+    const grid = tableDataStore[contextId];
+    if (grid.length <= 1) {
+        alert('Tabel minimal harus memiliki 1 baris.');
+        return;
+    }
+    grid.pop();
+    renderTableBuilder(contextId);
+    syncTableToTextarea(contextId);
+}
+
+function addTableCol(contextId) {
+    if (!tableDataStore[contextId]) return;
+    const grid = tableDataStore[contextId];
+    if (grid[0] && grid[0].length >= 10) {
+        alert('Maksimal 10 kolom.');
+        return;
+    }
+    grid.forEach((row, rIdx) => {
+        row.push(rIdx === 0 ? ('Kolom ' + (row.length + 1)) : '');
+    });
+    renderTableBuilder(contextId);
+    syncTableToTextarea(contextId);
+}
+
+function removeTableCol(contextId) {
+    if (!tableDataStore[contextId]) return;
+    const grid = tableDataStore[contextId];
+    if (grid[0] && grid[0].length <= 1) {
+        alert('Tabel minimal harus memiliki 1 kolom.');
+        return;
+    }
+    grid.forEach(row => row.pop());
+    renderTableBuilder(contextId);
+    syncTableToTextarea(contextId);
+}
+
+function deleteTable(contextId) {
+    if (!confirm('Apakah Anda yakin ingin menghapus tabel dari soal ini?')) return;
+    delete tableDataStore[contextId];
+
+    const textarea = getTextareaForContext(contextId);
+    if (textarea) {
+        textarea.value = textarea.value.replace(/<div class="table-responsive[\s\S]*?<\/div>|<table[\s\S]*?<\/table>/gi, '').trim();
+    }
+    const builder = document.getElementById('table_builder_' + contextId);
+    if (builder) builder.classList.add('hidden');
+    updateLivePreview(contextId);
+}
+
+function syncTableToTextarea(contextId) {
+    const grid = tableDataStore[contextId];
+    if (!grid) return;
+    const tableHtml = buildHtmlTable(grid);
+    insertTableIntoTextarea(contextId, tableHtml);
+    updateLivePreview(contextId);
+}
+
+function onQuestionTextInput(contextId) {
+    initTableBuilderForContext(contextId);
+    updateLivePreview(contextId);
+}
+
+function updateLivePreview(contextId) {
+    const textarea = getTextareaForContext(contextId);
+    const preview = document.getElementById('live_preview_' + contextId);
+
+    if (textarea && preview) {
+        const val = textarea.value;
+        const formatted = /<table[\s\S]*?>/i.test(val) ? val : val.replace(/\n/g, '<br>');
+        preview.innerHTML = formatted;
+    }
+}
+
 </script>
+
+<!-- Modal Upload Word Exam -->
+<div id="modal-word-exam" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div class="bg-white dark:bg-[#141416] border border-slate-200 dark:border-zinc-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
+            <div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span class="text-blue-600 dark:text-blue-400">📝</span> Import Paket Ujian dari Word (.docx)
+                </h3>
+                <p class="text-xs text-slate-500 dark:text-zinc-400">Unggah berkas Microsoft Word (.docx / .doc) untuk ekstraksi soal, tabel, dan gambar secara akurat.</p>
+            </div>
+            <button onclick="document.getElementById('modal-word-exam').classList.add('hidden')" class="text-slate-400 hover:text-slate-900 dark:hover:text-white text-lg">✕</button>
+        </div>
+
+        <form action="{{ route('guru.exams.import-word') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+            @csrf
+            <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilih Mata Pelajaran</label>
+                <select name="subject_id" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
+                    @foreach($subjects as $s)
+                        <option value="{{ $s->id }}">{{ $s->title }} ({{ $s->code }})</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Target Jenjang Kelas</label>
+                <select name="grade_level" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
+                    <option value="SD Kelas 4">SD Kelas 4</option>
+                    <option value="SD Kelas 5">SD Kelas 5</option>
+                    <option value="SD Kelas 6">SD Kelas 6</option>
+                    <option value="SMP Kelas 7">SMP Kelas 7</option>
+                    <option value="SMP Kelas 8">SMP Kelas 8</option>
+                    <option value="SMP Kelas 9">SMP Kelas 9</option>
+                </select>
+            </div>
+
+            <div class="space-y-1">
+                <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Judul Paket Ujian</label>
+                <input type="text" name="title" required placeholder="Contoh: Penilaian Harian Matematika (Word)" class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Durasi (Menit)</label>
+                    <input type="number" name="duration_minutes" value="15" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">KKM Nilai</label>
+                    <input type="number" name="passing_score" value="70" required class="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-300 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white">
+                </div>
+            </div>
+
+            <div class="space-y-1.5">
+                <label class="text-xs font-semibold text-slate-700 dark:text-zinc-300">Pilih Berkas Word (.docx / .doc)</label>
+                <div class="border-2 border-dashed border-blue-500/30 hover:border-blue-500/60 bg-blue-50 dark:bg-blue-950/10 p-5 rounded-2xl text-center space-y-2 transition">
+                    <svg class="w-8 h-8 text-blue-600 dark:text-blue-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <input type="file" name="word_file" accept=".docx,.doc" required class="block w-full text-xs text-slate-600 dark:text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 transition cursor-pointer">
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+                <input type="checkbox" name="allow_repeat" id="word_allow_repeat" value="1" class="w-4 h-4 text-blue-600 rounded border-slate-300 dark:border-zinc-800 focus:ring-blue-500">
+                <label for="word_allow_repeat" class="text-xs font-semibold text-slate-700 dark:text-zinc-300 cursor-pointer">Izinkan Siswa Mengulangi Ujian (Fitur Ulangi)</label>
+            </div>
+
+            <!-- Guidelines Box -->
+            <div class="bg-slate-50 dark:bg-zinc-900/90 border border-slate-200 dark:border-zinc-800 p-3.5 rounded-2xl text-[11px] text-slate-700 dark:text-zinc-400 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-blue-600 dark:text-blue-400 block">💡 Keunggulan Import Dokumen Word:</span>
+                    <a href="{{ route('guru.exams.template') }}" class="px-2.5 py-1 bg-blue-100 dark:bg-blue-950 hover:bg-blue-200 dark:hover:bg-blue-900 border border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-bold rounded-lg text-[10px] flex items-center gap-1 transition">
+                        <span>📥</span> Unduh Template (.doc)
+                    </a>
+                </div>
+                <p>• <b>Tabel Word Otomatis:</b> Tabel di dalam Word langsung dikonversi menjadi tabel terstruktur rapi.</p>
+                <p>• <b>Gambar Otomatis:</b> Gambar yang disematkan di Word langsung diekstrak & dilampirkan ke soal.</p>
+                <p>• <b>Struktur Soal:</b> Gunakan nomor standar (<code>1.</code>, <code>2.</code>) dan opsi (<code>A.</code>, <code>B.</code>, <code>C.</code>, <code>D.</code>).</p>
+                <p>• <b>Kunci & Pembahasan:</b> Tulis <code>Kunci: A</code> dan <code>Pembahasan: ...</code> di bawah soal atau di akhir berkas.</p>
+            </div>
+
+            <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2">
+                <span>📝</span> Import & Ekstrak Soal Word
+            </button>
+        </form>
+    </div>
+</div>
 
 <!-- Modal Upload PDF Exam -->
 <div id="modal-pdf-exam" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -1386,9 +1784,9 @@ Pembahasan: Daur hidup dimulai dari telur hingga kupu-kupu dewasa.</pre>
             </div>
 
             <div class="space-y-1.5">
-                <span class="font-bold text-slate-800 dark:text-zinc-200 block">4. Tabel Pernyataan Benar / Salah (True/False Table)</span>
+                <span class="font-bold text-slate-800 dark:text-zinc-200 block">4. Tabel Pernyataan Tepat / Tidak Tepat (Tabel Pernyataan)</span>
                 <pre class="bg-slate-100 dark:bg-zinc-950 border border-slate-300 dark:border-zinc-800/80 p-3.5 rounded-2xl text-slate-800 dark:text-zinc-300 font-mono text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap">
-4. Tentukan Benar atau Salah untuk setiap pernyataan berikut:
+4. Tentukan Tepat atau Tidak Tepat untuk setiap pernyataan berikut:
 Tipe: true_false_table
 A. 15 adalah bilangan prima. => Salah
 B. 17 adalah bilangan prima. => Benar
@@ -1425,4 +1823,76 @@ Pembahasan: 12, 24, dan 30 habis dibagi 6 (kelipatan 6).</pre>
         </div>
     </div>
 </div>
+
+<!-- Modal Setup Ukuran Tabel -->
+<div id="modal_table_config" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full max-w-sm rounded-2xl p-5 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2.5">
+            <h3 class="font-bold text-slate-800 dark:text-zinc-100 text-sm flex items-center gap-2">
+                <span>📊</span> Tentukan Ukuran Tabel
+            </h3>
+            <button type="button" onclick="closeTableModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 text-sm font-bold">✕</button>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-xs">
+            <div class="space-y-1">
+                <label class="font-semibold text-slate-600 dark:text-zinc-400">Jumlah Baris:</label>
+                <input type="number" id="modal_table_rows" min="1" max="25" value="3"
+                       class="w-full bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-center text-sm font-bold text-slate-900 dark:text-white">
+                <span class="text-[10px] text-slate-400 block">(Termasuk baris judul)</span>
+            </div>
+            <div class="space-y-1">
+                <label class="font-semibold text-slate-600 dark:text-zinc-400">Jumlah Kolom:</label>
+                <input type="number" id="modal_table_cols" min="1" max="10" value="2"
+                       class="w-full bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-center text-sm font-bold text-slate-900 dark:text-white">
+                <span class="text-[10px] text-slate-400 block">(Maksimal 10 kolom)</span>
+            </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+            <button type="button" onclick="closeTableModal()"
+                    class="px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 font-medium">
+                Batal
+            </button>
+            <button type="button" onclick="confirmCreateTable()"
+                    class="px-4 py-1.5 text-xs rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
+                Sisipkan Tabel
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.soal-rich-content table, .soal-table {
+    width: 100%;
+    margin: 8px 0;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+}
+.soal-rich-content th, .soal-table th {
+    background-color: #f1f5f9;
+    color: #1e293b;
+    font-weight: 700;
+    padding: 6px 10px;
+    border: 1px solid #cbd5e1;
+    text-align: center;
+}
+.soal-rich-content td, .soal-table td {
+    padding: 6px 10px;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+    color: #334155;
+    background-color: #ffffff;
+}
+.dark .soal-rich-content th, .dark .soal-table th {
+    background-color: #27272a;
+    color: #f4f4f5;
+    border-color: #3f3f46;
+}
+.dark .soal-rich-content td, .dark .soal-table td {
+    border-color: #3f3f46;
+    color: #d4d4d8;
+    background-color: #18181b;
+}
+</style>
+
 @endsection
